@@ -4,7 +4,9 @@
 OSMB aims to help developers analyze various implementations of memory allocator systems in Linux. This tool is a part of my Master's thesis.
 
 <h3>Recent activity</h3>
+<ul>
 RECACT PLACEHOLDER
+</ul>
 
 <h3>Source code</h3>
 The project git repository is <a href="http://git.afri.cz/?p=diplomka.git;a=summary">here</a>
