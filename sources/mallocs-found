@@ -5,3 +5,6 @@ openbsd-malloc: http://mr.himki.net/index-alloc.html
 hoard: http://www.hoard.org/
 libarena: http://www.25thandclement.com/~william/projects/libarena.html
 rmalloc: http://www.hlnum.org/english/projects/tools/rmalloc/
+rtmalloc: http://rtportal.upv.es/rtmalloc/
+links: http://rtportal.upv.es/rtmalloc/node/20
+jemalloc: http://people.freebsd.org/~jasone/jemalloc/bsdcan2006/jemalloc.pdf
