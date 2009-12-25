@@ -1,53 +1,35 @@
-    @BOOK{Pravidla,
-      author =       "{Kolektiv autorů}",
-      title =        "Pravidla českého pravopisu",
-      publisher =    "Academia",
-      year =         "2005",
-      note =         "ISBN~80-200-1327-X",
-    }
-    
-    @BOOK{Knuth,
-      author =       "Donald E. Knuth",
-      title =        "The {\TeX}book",
-      publisher =    "Addison-Wesley Publishing Company",
-      year =         "1996",
-      note =         "ISBN~0-201-13447-0",
-    }
-    
-    @BOOK{Rybicka,
-      author =       "Jiří Rybička",
-      title =        "{\LaTeX} pro začátečníky",
-      publisher =    "Konvoj",
-      year =         "1999",
-      note =         "ISBN~80-85615-77-0",
-    }
+@inproceedings{DSAsurvey,
+  address = {Kinross Scotland (UK)},
+  author = {Wilson, Paul R. and Johnstone, Mark S. and Neely, Michael and Boles, David},
+  booktitle = {Proc.\ Int.\ Workshop on Memory Management},
+  title = {Dynamic Storage Allocation: A Survey and Critical Review},
+  year = {1995}
+}
 
-    @BOOK{Olsak,
-      author =       "Petr Olšák",
-      title =        "{\TeX}book naruby",
-      publisher =    "Konvoj",
-      year =         "2001",
-      note =         "ISBN~80-7302-0007-6",
-    }
+@article{drepper-memory,
+  author = {Drepper, Ulrich},
+  title = {What Every Programmer Should Know About Memory},
+  year = {2007},
+  url = {http://people.redhat.com/drepper/cpumemory.pdf}
+}
 
-    @BOOK{Eikh,
-      author =       "Victor Eikhout",
-      title =        "{\TeX}by Topics, a {\TeX}nitian's Reference ",
-      publisher =    "Addison-Wesley UK",
-      year =         "2001",
-      note =         "ISBN~0-201-56882-9",
-    }
+@manual{glibc-man-malloc,
+  title = {The GNU C Library Reference Manual},
+  author = {Loosemore, Sandra and Stallman, Richard M. and McGrath, Roland and Oram, Andrew and Drepper, Ulrich},
+  organization = {Free Software Foundation},
+  edition = {0.12},
+  month = {October},
+  year = {2007},
+  pages = {30-64}
+}
 
-   @MISC{cstugWeb,
-      author =       "{WWW stránky}",  
-      title =        "Československé sdružení uživatelů {\TeX}u",
-      howpublished=  "{\tt http://www.cstug.cz}",
-   }
+@manual{glib-memalloc,
+  title = {GLib Reference Manual - Memory Allocation},
+  organization = {GNOME Project},
+  url = {http://library.gnome.org/devel/glib/unstable/glib-Memory-Allocation.html}
+}
 
-   @MISC{fitWeb,
-      author =       "Z. Rábová and P. Hanáček and P. Peringer and P. Přikryl and B. Křena",  
-      title =        "Užitečné rady pro psaní odborného textu [online]",
-      publisher =    "FIT VUT v Brně",
-      year =         "2008-11-01 [cit. 2008-11-28]",
-      howpublished=  "{\tt http://www.fit.vutbr.cz/info/statnice/psani\_textu.html}",
-   }
+@misc{tcmalloc,
+  title = {TCMalloc: A Thread-Caching malloc},
+  author = {Ghemawat, Sanjay and Menage, Paul}
+}
