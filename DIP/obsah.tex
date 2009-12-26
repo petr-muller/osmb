@@ -47,6 +47,7 @@ The allocator operates on some amount of memory, which is usually (but not neces
 There are few notable constraints which makes the allocator's goal harder. The allocator cannot control the number, order and the memory size of allocations - these are set by a program using the allocator. The allocator also satisfies one allocation at a time (with the exception of possible concurrency, which does not affect this problem), without the knowledge about the future allocations requests. The memory must be provided immediatelly, and once the allocator selects the memory place for it, it cannot be modified when additional requests come and better decision could be made, until the program frees that memory. 
 
 \section{Interesting performance metrics of memory allocators}
+\label{metrics}
 
 There is no clear performance metric for the memory allocators. There are different metrics describing the characteristics of an allocator, and their importance and relevance as a performance metric depends on the characteristics of a program using an allocator. For example, a time per allocation certainly matters in a program doing millions of allocations, while it is not much interesting in a program with only few allocations. This section lists various metrics which can be under some circumstances considered as relevant performance metrics, along with these circumstances.
 
@@ -60,11 +61,13 @@ Every memory allocator needs some memory for it's own use. At the very least, it
 
 Allocation speed is simply the amount of time spent processing the allocation or deallocation request. In usual use cases, the allocation speed is not very important, because allocator requests usually make only a minor portion of program statements. In such cases, time taken by memory allocation requests is negligible in the total time the program is executing (if the time taken by allocator is not extreme, of course), so the performance impact in the program is low. However, this is not always the case. In some environments where a large number of allocations and deallocations occurs, the program performance can rapidly increase and decrease in accordance to the allocator performance. An example of such environment is the interpreter of some object-oriented scriptiong language, such as Python or Ruby. When these interpreters are processing some scripts, large hierarchies of objects can be created or destroyed (for example when entering or leaving a function), which results in a large chain of small allocations or deallocations. Low performance allocator can rapidly decrease performance of execution of such a program.
 
-\subsection{Locality}
+\subsection{Locality and spatial layout}
 
-Locality is a metric which can dramatically affect performance of a program. Current computers have several layers of operating memory - in addition to "normal" operating memory, current CPUs have several levels of cache memory. For example, Intel i7 family of CPUs have three levels of cache. Usually, the closer the cache level is to the CPU itself, the faster the operations with data in it. Reading data from L1 cache can be X times\cite{drepper-memory} faster than reading same data from the main memory. Smart memory allocator can arrange data in a way that is friendly to this memory structure: if data, which are often used together are also placed near themselves in memory, then it is likely that both can be present in the fastest cache, and thus all the work can be done on the fast cache level without the need of multiple main memory accesses. Similarly, poor allocator can place data which are used together in different memory areas, which then basically eradicates the advantage of having a cache because of cache trashing. 
+Locality is a metric which can dramatically affect performance of a program. Current computers have several layers of operating memory - in addition to "normal" operating memory, current CPUs have several levels of cache memory. For example, Intel i7 family of CPUs have three levels of cache. Usually, the closer the cache level is to the CPU itself, the faster the operations with data in it. Reading data from L1 cache can be X times\cite{drepper-memory} faster than reading same data from the main memory. Smart memory allocator can arrange data in a way that is friendly to this memory structure: if data, which are often used together are also placed near themselves in memory, then it is likely that both can be present in the fastest cache, and thus all the work can be done on the fast cache level without the need of multiple main memory accesses. Similarly, poor allocator can place data which are used together in different memory areas, which then basically eradicates the advantage of having a cache because of cache trashing.
 
-Allocators can improve their locality metric either by taking advantage of some usual program patterns, or by taking hints from the program it serves. One quite common pattern is a temporal one. Data which are allocated close in time are quite likely to be used close in time. So if an allocator places temporally close allocations also spatially close, it has a good chance of being cache-friendly, improving the program's performance. Second method is taking hints from the program itself - the programmer usually knows which data will be used together. 
+Allocators can improve their locality metric either by taking advantage of some usual program patterns, or by taking hints from the program it serves. One quite common pattern is a temporal one. Data which are allocated close in time are quite likely to be used close in time. So if an allocator places temporally close allocations also spatially close, it has a good chance of being cache-friendly, improving the program's performance. Second method is taking hints from the program itself - the programmer usually knows which data will be used together.
+
+Second issue concerning memory layout is the allocator induced false sharing. False sharing is a usage pattern where two threads use their objects exclusively, but theses two objects share a cache line. When one thread modifies its object, second one will have to read its object from memory again, despite the object was not modified and it could be safely read. The reason for this is that when the first CPU wrote its data, whole cache line was rendered as invalid for the other CPUs. If the allocator places the memory chunks allocated by different threads close to each other, it can lead to lower program performance because of the false sharing caused by this.
 
 \subsection{Fragmentation}
 \label{metrics:fragmentation}
@@ -86,11 +89,38 @@ It can be clearly seen that fragmentation can vary even in different times durin
 \section{Variables influencing memory allocator performance}
 In previous section, various metrics having a relevance as performance ones were described. This section discusses factors influencing these metrics. Knowledge of these factors is needed in order to provide a framework for allocation scenario creation.
 \subsection{Systemcall costs}
-\subsection{Size of allocation}
+
+When an allocator needs to provide more memory, but it has no suitable free space available, it has to ask the operating system for more memory. This is done by appropriate system calls. Linux kernel provides these two system calls suitable for this purpose.
+
+\begin{enumerate}
+\item {\tt brk} system call sets the end of program's data segment to some certain address. It can be used to enlarge or shrink the segment.\cite{posix}
+\item {\tt mmap} system call maps certain amount of memory into the process address space. This is usually used to map a file to memory, so it can be read and written via means of normal memory operations, not reads and writes. But (using the MAP\_ANON flag) it can also be used to allocate anonymous memory, which is not associated to any specific file.\cite{posix}
+\end{enumerate}
+Additionally, there is a {\tt sbrk} function, provided by C library. This is basically a wrapper over {\tt brk} system call, providing interface for relative (as opposed to absolute in the case of {\tt brk}) adjustment of data segment break.\cite{sbrk-manpage}
+
+System calls are usually considered as expensive operations (due to control transfer to the kernel and back to userspace), so allocators usually try to map several allocation requests to single system call and doing internal bookkeeping on the memory. For this to be effective, the bookkeping must take less time then it would take so do a simple syscall.
+
+System call cost is a factor affecting the allocation speed. The size of this influence depends on how often the allocator uses system calls. Allocator doing one huge memory request once in a while (with bookkeeping on the memory) will depend on system call much less then one which does a system call for every allocation request.
+\subsection{Size of an allocation}
+
+Size of an allocation can theoretically affect allocation speed, fragmentation and spatial layout/locality metrics. The impact on speed should, in theory, be quite minor. It should be slightly easier to find a suitable place for a small chunk request for a big one, but the allocator usually knows how large chunks it can provide at the moment, and for how large more memory should be requested from the operating system. 
+
+The impact on memory layout and fragmentation is higher. A larger chunk request means less possible places to put it into. This is limiting in how "well" the allocator can place the chunk. The allocator can have a lot of free space available, but if a request for a chunk just as large as the largest free continuous space comes, the allocator has only two choices. First choice is to place the chunk into the free place, possibly worsening locality or memory layout. The second one is to get more more memory from the operating system to place the chunk well from the locality point of view, but increasing fragmentation.
+
 \subsection{Allocation and deallocation order}
+bla bla bla
 \subsection{Heap size}
+blabla bla
 \subsection{Threading}
+Multithreaded programs are bringing the whole new level of complexity into the memory allocation system. Threading (and distribution of memory allocations across threads) can affect all of the performance metrics described in section \ref{metrics}. 
+
+The memory allocator can be thought as a resource for the program. In a multi-threaded program, any thread can request to allocate or free memory at any time. If an allocator wouldn't be enabled for multithreaded environment, race conditions would probably occur, resulting into several threads using the identical memory area and rewriting each other's data. To avoid this, the allocator has to have some kind of control. Such a control could be a locking scheme, which would serialize the allocation requests of threads. The scheme can be one large lock, or a finer grained locking scheme, introducing a pipeline. Another approach is to create an internal thread specific "arenas". Every thread has it's own "arena" in the allocator, and it's requests are satisfied by using memory exclusively from it, which eliminates a need for locking. This second approach is used in the GNU C Library's malloc.
+
+The impact on allocation speed is obvious, and has two sources. Locks in the allocator cause the threads asking for memory to wait for each other, which could introduce a major speed reduction of allocation if threads are doing lot of memory requests. The second source is the overhead of the multi-threading capabilities of the allocator itself. Both locks and the thread specific "arena" mechanisms have some overhead, which would be unnecessary in single-threaded environment.
+
+Fragentation and locality
 \chapter{Benchmarking methodology}
+\chapter{Conclusion}
 %\chapter{OSMB tool}
 %\chapter{Different malloc implementations analysis}
 %\chapter{Conclusion}
