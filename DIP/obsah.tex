@@ -108,9 +108,9 @@ Size of an allocation can theoretically affect allocation speed, fragmentation a
 The impact on memory layout and fragmentation is higher. A larger chunk request means less possible places to put it into. This is limiting in how "well" the allocator can place the chunk. The allocator can have a lot of free space available, but if a request for a chunk just as large as the largest free continuous space comes, the allocator has only two choices. First choice is to place the chunk into the free place, possibly worsening locality or memory layout. The second one is to get more more memory from the operating system to place the chunk well from the locality point of view, but increasing fragmentation.
 
 \subsection{Allocation and deallocation order}
-bla bla bla
-\subsection{Heap size}
-blabla bla
+
+The allocation and deallocation order has a major impact on how the fragmentation metric will look like during the usage of an allocator. As it was described in subsection \ref{metrics:fragmentation}, some combinations of allocation size and their ordering can cause "holes" in the memory managed by the allocator.
+
 \subsection{Threading}
 Multithreaded programs are bringing the whole new level of complexity into the memory allocation system. Threading (and distribution of memory allocations across threads) can affect all of the performance metrics described in section \ref{metrics}. 
 
@@ -118,10 +118,23 @@ The memory allocator can be thought as a resource for the program. In a multi-th
 
 The impact on allocation speed is obvious, and has two sources. Locks in the allocator cause the threads asking for memory to wait for each other, which could introduce a major speed reduction of allocation if threads are doing lot of memory requests. The second source is the overhead of the multi-threading capabilities of the allocator itself. Both locks and the thread specific "arena" mechanisms have some overhead, which would be unnecessary in single-threaded environment.
 
-Fragentation and locality
+Second metric where the number of threads has some relevance is the memory layout and locality. Measuring the false sharing prone allocations only makes sense in multithreaded environment, because false sharing can only occur when a program runs simultaneously on at least CPUs. Locality metric should be measured inside single thread, and in each thread in multithreaded environment. 
 \chapter{Benchmarking methodology}
+
+In chapter \ref{metrics}, several metrics with some relevance to the performance of an allocator were analysed and described. This chapter will discuss the methodology of measuring these metrics.
+
+\section{Measuring memory overhead and fragmentation}
+
+The benchmarking tools should be agnostic to the measured memory allocator to be useful as an universal memory allocator benchmark. This means it should not depend on any internal knowledge of the allocator, nor it can use some allocator specific APIs. Using these would mean the benchmark would be unusable for analysis of the allocators which do not implement these APIs. The benchmark can only use the standardized {\tt malloc} and {\tt free} interfaces, with perhaps the future addition of {\tt realloc} interface. In addition to these APIs, the benchmark can also use some external tools to observe the behavior of an allocator. 
+
+This brings a problem with measuring the memory overhead of an allocator. All the means benchmark can use only observe the communication of an allocator with the environment. The benchmark only knows two things. It knows how much memory is actually allocated by the program. It also knows how much memory the allocator manages: the benchmark can intercept and log the memory requesting system calls or it can analyse the memory image of a process to discover the size of the heap. From these two numbers, the benchmark can compute how much memory is not used in program, but is granted by the operating system. There is no universal mean how to discover how much of this unused memory is actually memory overhead (and is used by the memory allocator metadata) and how much is fragmentation (and is not used at all). This information is a completely internal in the allocator. Some memory allocators provide the APIs to determine this information, but it is not universal, so the benchmark cannot use it.
+
+At least fragmentation is very important metric, so because the benchmark cannot reliably measure these two metrics separately, the bechmark has to measure at least some information which will give some information about the fragmentation. The approach chosen is to measure just the total amount of memory which is not used by the program. This value is a sum of fragmentation and memory overload. This does not give a precise information about any of these metrics, but gives an information about how effectively the allocator manages it's memory. After all, from the outside, these two metrics share the most important characteristics: they both represent an amount of memory, which was granted by the operating system, but cannot be used in the program. This new {\em unused memory} metric's absolute value can be taken after each allocation and deallocation. From these values, a unused memory ratio can be calculated and statistically processed.
+
+In addition to this, a real fragmentation metric can be calculated by detailed analysis of allocation and deallocation requests, and detecting if such request caused a system call. If an allocation request was done and satisfied without an system call being issued, it is certain that at the time of an allocation request the memory was free and unused in the allocator's managed area, and therefore considered as fragmentation. If another allocation request is made, and no system call is still caused by it, we can add this value to the previous one: at the time of the previous allocation request at least the space of the sum of these two allocations were fragmented for sure. When a system call for more memory is issued, the knowledge about fragmenation is invalidated and the computation has to start again. A system call returning memory to the operating system does not invalidate this value. Similar thing can be observed for deallocation requests. If a deallocation request does not cause an allocator to return the memory to the operating system, it is kept in the allocator and considered as fragmentation. Subsequent cases can be summarized too, and invalidated by the system call returning memory. This gives a limited information about fragmentation - it is a minimal amount of fragmentation in that precise time. Usefulness of this metric is limited to the concrete usage scenarios and allocator characteristics: for most of the scenarios mixing allocation and dealocation requests these values will be invalidated often, limiting their precision.
+
+\chapter{OSMB toolset}
 \chapter{Conclusion}
-%\chapter{OSMB tool}
 %\chapter{Different malloc implementations analysis}
 %\chapter{Conclusion}
 %I will be Ing. \cite{Pravidla}
