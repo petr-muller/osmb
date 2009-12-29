@@ -87,6 +87,7 @@ The problem with fragmentation is that it is not a proper feature of an allocato
 It can be clearly seen that fragmentation can vary even in different times during the execution of a single program. This can be a problem especially for a long running programs doing lot of allocations and deallocations, like daemons or web browsers. If a bad memory allocator is used, the amount of memory wasted by fragmentation can rise over time, slowly deteriorating the performance of the whole operating system. In extreme cases, the allocator can run into problems by exhausting the whole available memory, while having a large amount of unused memory.\cite{DSAsurvey} A repeated allocation scenario from the last paragraph on the heap-based allocator could lead to such situation.
 
 \section{Variables influencing memory allocator performance}
+\label{variables}
 In previous section, various metrics having a relevance as performance ones were described. This section discusses factors influencing these metrics. Knowledge of these factors is needed in order to provide a framework for allocation scenario creation.
 \subsection{Systemcall costs}
 
@@ -103,7 +104,7 @@ System calls are usually considered as expensive operations (due to control tran
 System call cost is a factor affecting the allocation speed. The size of this influence depends on how often the allocator uses system calls. Allocator doing one huge memory request once in a while (with bookkeeping on the memory) will depend on system call much less then one which does a system call for every allocation request.
 \subsection{Size of an allocation}
 
-Size of an allocation can theoretically affect allocation speed, fragmentation and spatial layout/locality metrics. The impact on speed should, in theory, be quite minor. It should be slightly easier to find a suitable place for a small chunk request for a big one, but the allocator usually knows how large chunks it can provide at the moment, and for how large more memory should be requested from the operating system. 
+Size of an allocation can theoretically affect allocation speed, fragmentation and spatial layout/locality metrics. The impact on speed should, in theory, be quite minor. It should be slightly easier to find a suitable place for a small chunk request for a big one, but the allocator usually knows how large chunks it can provide at the moment, and for how large more memory should be requested from the operating system.
 
 The impact on memory layout and fragmentation is higher. A larger chunk request means less possible places to put it into. This is limiting in how "well" the allocator can place the chunk. The allocator can have a lot of free space available, but if a request for a chunk just as large as the largest free continuous space comes, the allocator has only two choices. First choice is to place the chunk into the free place, possibly worsening locality or memory layout. The second one is to get more more memory from the operating system to place the chunk well from the locality point of view, but increasing fragmentation.
 
@@ -112,13 +113,14 @@ The impact on memory layout and fragmentation is higher. A larger chunk request 
 The allocation and deallocation order has a major impact on how the fragmentation metric will look like during the usage of an allocator. As it was described in subsection \ref{metrics:fragmentation}, some combinations of allocation size and their ordering can cause "holes" in the memory managed by the allocator.
 
 \subsection{Threading}
+
 Multithreaded programs are bringing the whole new level of complexity into the memory allocation system. Threading (and distribution of memory allocations across threads) can affect all of the performance metrics described in section \ref{metrics}. 
 
 The memory allocator can be thought as a resource for the program. In a multi-threaded program, any thread can request to allocate or free memory at any time. If an allocator wouldn't be enabled for multithreaded environment, race conditions would probably occur, resulting into several threads using the identical memory area and rewriting each other's data. To avoid this, the allocator has to have some kind of control. Such a control could be a locking scheme, which would serialize the allocation requests of threads. The scheme can be one large lock, or a finer grained locking scheme, introducing a pipeline. Another approach is to create an internal thread specific "arenas". Every thread has it's own "arena" in the allocator, and it's requests are satisfied by using memory exclusively from it, which eliminates a need for locking. This second approach is used in the GNU C Library's malloc.
 
 The impact on allocation speed is obvious, and has two sources. Locks in the allocator cause the threads asking for memory to wait for each other, which could introduce a major speed reduction of allocation if threads are doing lot of memory requests. The second source is the overhead of the multi-threading capabilities of the allocator itself. Both locks and the thread specific "arena" mechanisms have some overhead, which would be unnecessary in single-threaded environment.
 
-Second metric where the number of threads has some relevance is the memory layout and locality. Measuring the false sharing prone allocations only makes sense in multithreaded environment, because false sharing can only occur when a program runs simultaneously on at least CPUs. Locality metric should be measured inside single thread, and in each thread in multithreaded environment. 
+Second metric where the number of threads has some relevance is the memory layout and locality. Measuring the false sharing prone allocations only makes sense in multithreaded environment, because false sharing can only occur when a program runs simultaneously on at least CPUs. Locality metric should be measured inside single thread, and in each thread in multithreaded environment.
 \chapter{Benchmarking methodology}
 
 In chapter \ref{metrics}, several metrics with some relevance to the performance of an allocator were analysed and described. This chapter will discuss the methodology of measuring these metrics.
@@ -156,6 +158,29 @@ Across multiple threads, a similar metric should be taken for determining of the
 Another approach to analyse locality in a rather practical way is to do some computing on the allocated memory, and observing cache misses on various levels occuring during the runtime. In multithreaded environment, the misses count will probably heavily depend on the execution order of the threads, which means more experiments will have to be done for obtaining numbers with higher precision.
 
 \chapter{OSMB toolset}
+
+This chapter will discuss the design and implementation of the tool. OSMB is a abbreviation of "Open Source Malloc Benchmark".
+
+\section{Design}
+
+The toolset will be composed from several smaller tools which will measure various metrics as described in previous chapter. This approach was chosen because of the better precision of the measurement. If all the metrics were taken during one benchmark run, some metrics, especially the time ones, could be affected by the overhead introduced by the benchmark. At least for the time performance metrics the benchmark tools should have as low overhead as possible. In contrast to this, for fragmentation and memory layout analysis there is no need for this, because the goal is to obtain precise results even for the price of some duration overhead.
+
+To allow the user to specify the environment for testing, i.e. the values of the various factors as described in \ref{variables}, the tool will take a {\em scenario file} as an input. This file will be written in a domain specific language, and will specifify how all of these variables, or a subset of them will look like in the environment. This file will serve as input to the {\em scenario driver}, which will parse it and will execute one run of such a scenario. During the execution, one or more measurement tools will attach to the driver, and will take the metrics. The tool should allow the user to run the scenario for the specified number of times, obtaining results from all of these runs, and then perform some statistical analysis of the collected data. To mitigate the effect of "warming up", the tool should provide the ability to run the arbitrary numbers of unmeasured executions.
+
+There are two sources of the scenario input file. The format will be text based domain specific language, so the user can manually write the scenarios, or write a generator. One such generator should be provided with the tool. The generator should be able to attach to any running process which uses dynamic memory allocation, and trace it's usage of {\tt malloc} and {\tt free}, creating a scenario file from the collected information. Tracing these functions will be done by using external tools: {\tt ltrace} or {\tt systemtap}.
+
+The measurement tools should not do any unnecessary computing during the benchmark execution. They should only record the observations, and these raw data should be processed after the benchmark execution. The toolset should also provide some tools for processing, interpreting and visualization of these raw data.
+
+\subsection{Scenario driver}
+
+\subsection{Tool for system call catching}
+
+Some of the metric measurement tools will benefit from the system call observations. There are two kinds of system calls which can occur during the benchmark execution. First are the memory allocation related system calls. These should be recorded with the parameters showing how much memory was processed by them. The rest are the system calls unrelated to memory management. These will be not recorded at all. If it would be possible to record only the system calls coming from the allocator itself, and not e.g. the measurement tools, maybe it would be useful to track some others, like the locking related ones, like {\tt futex()}. This is easily achievable with existing tools, like {\tt strace}, so the focus of this work won't be on this use case.
+
+\subsection{Scenario recorder}
+
+The recorder will attach to any running program and trace it's usage of memory allocation functions. Tools like ltrace\cite{ltrace}, systemtap\cite{systemtap} or thethirdoneTODO\cite{TODO!} will be used for this. The data collected from this trace will be translated into the scenario file, and can then be used independently on the original program. Analysis of such a scenario can be used to tell, if some non-standard memory allocator would improve the performance of the original program.
+
 \chapter{Conclusion}
 %\chapter{Different malloc implementations analysis}
 %\chapter{Conclusion}
