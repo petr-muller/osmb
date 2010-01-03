@@ -6,6 +6,7 @@
 CO=projekt
 
 all: $(CO).pdf
+	make -C fig
 	./done.sh
 	@sleep 5
 
@@ -37,6 +38,7 @@ clean:
 	rm -f $(CO).pdf
 	rm -f *~
 	rm -f raw.txt stripped.txt
+	make -C fig clean
 
 pack:
 	tar czvf bp-xjmeno.tar.gz *.tex *.bib *.bst ./fig/* ./cls/* Makefile Changelog
