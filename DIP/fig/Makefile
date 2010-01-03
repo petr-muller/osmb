@@ -7,4 +7,4 @@ fragmentation.pdf: fragmentation.eps
 	epstopdf fragmentation.eps
 
 clean:
-	rm frags.pdf fragmentation.pdf
+	rm  -f frags.pdf fragmentation.pdf

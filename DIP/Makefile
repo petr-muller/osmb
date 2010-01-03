@@ -6,7 +6,6 @@
 CO=projekt
 
 all: $(CO).pdf
-	make -C fig
 	./done.sh
 	@sleep 5
 
@@ -16,6 +15,7 @@ $(CO).ps: $(CO).dvi
 	dvips $(CO)
 
 $(CO).pdf: clean
+	make -C fig all
 	pdflatex $(CO)
 	bibtex $(CO)
 	pdflatex $(CO)
