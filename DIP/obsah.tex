@@ -119,6 +119,7 @@ Additionally, there is a {\tt sbrk} function, provided by C library. This is bas
 System calls are usually considered as expensive operations (due to control transfer to the kernel and back to userspace), so allocators usually try to map several allocation requests to single system call and doing internal bookkeeping on the memory. For this to be effective, the bookkeping must take less time then it would take so do a simple syscall.
 
 System call cost is a factor affecting the allocation speed. The size of this influence depends on how often the allocator uses system calls. Allocator doing one huge memory request once in a while (with bookkeeping on the memory) will depend on system call much less then one which does a system call for every allocation request.
+
 \subsection{Size of an allocation}
 
 Size of an allocation can theoretically affect allocation speed, fragmentation and spatial layout/locality metrics. The impact on speed should, in theory, be quite minor. It should be slightly easier to find a suitable place for a small chunk request for a big one, but the allocator usually knows how large chunks it can provide at the moment, and for how large more memory should be requested from the operating system.
@@ -213,10 +214,22 @@ The output of the benchmark run will have the form of the raw data, with no part
 
 All of the graph outputs whould provide the ability of showing the results of the several runs in one graph, providing easy comparison of them.
 \chapter{Conclusion}
+
 This term project had three main goals. This chapter describes the achieved work on these goals, and makes conclusions based on these goals.
+
 \section{Achieved work}
-The inital goal of the term project was to describe the dynamic allocation problematics, and identify the features and characteristics important to the topic of the thesis.
+
+The inital goal of the term project was to describe the dynamic allocation problematics, and identify the features and characteristics important to the topic of the thesis. These were described in chapter \ref{dsa}. Several performance metrics were identified and described. The identified performance metrics were memory overhead, memory fragmentation, allocation speed and memory locality and layout metrics. For these metrics, a benchmarking methodology was created. The second part of the initial goal was to find the factors affecting these performance metrics. These factors were described in \ref{factors}. The factors are these: system call cost, allocation request size, the order in which the requests are coming, and the number of threads in the application using the allocator.
+
+Using the identified factors and performance metrics, the high-level design of the benchmarking tool was designed. The design was driven by the two main goals: it has to provide the ability to influence all of the performance factors in the benchmarking environment, and it has to be able to measure all the performance metrics as presisely as possible, using statistical means where necessary. The design also identified the precise output values for each metric. 
+
+The whole tool was designed to be a interpreter of a domain specific language, encoding the usage scenario of the allocator: both the environmental characteristics (system call costs) and the program characteristics (threading, allocation size and order). The interpreter will create a C program. The execution of this program will then be analysed by the various metric specific tools, both during the execution (data collection) and after it (data analysis and interpretation).
+
 \section{Future work}
+
+Using the factors and metrics collected in this term project, as well as the initial high-level design decision, the benchmarking tool suite will be implemented. Aside from the implementation itself, the tool will use several external tools to do some specific tasks. It will use GCC to compile the programs. Systemtap will be used for the userspace-kernelspace communication interception, and if possible also to catch the malloc/free calls in the userspace. If this is not possible, ltrace will be used.
+
+When the implementation is ready and working, the tool will be tested on several allocators. The main popular ones will be tested, and some interesting experimental one too. These candidates for the testing will have to be found. 
 %\chapter{Different malloc implementations analysis}
 %\chapter{Conclusion}
 %I will be Ing. \cite{Pravidla}
