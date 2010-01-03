@@ -45,6 +45,7 @@
   \usepackage{graphics}
   \usepackage{epsfig}
 \else % je to pdftex !
+  \usepackage[unicode,colorlinks,linkcolor=black,citecolor=black,urlcolor=black,hyperindex,plainpages=false,pdftex]{hyperref}
   \usepackage[pdftex]{graphicx}
 \fi
 
@@ -55,6 +56,7 @@
 \setlength{\voffset}{-1.5cm}
 \setlength{\textheight}{23.0cm}
 \setlength{\textwidth}{15.2cm}
+\linespread{1.0}
 
 %-----------------------------------------------------------------------------
 %Texty
