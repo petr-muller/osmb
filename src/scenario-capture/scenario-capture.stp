@@ -1,0 +1,7 @@
+probe process("/lib64/libc-2.11.1.so").function("malloc").return{
+  printf("MALLOC TID=%i PID=%i SIZE=%i RETURN=%i\n", tid(), pid(), $bytes, $return);
+}
+
+probe process("/lib64/libc-2.11.1.so").function("free"){
+  printf("FREE TID=%i PID=%i POINTER=%i\n", tid(), pid(), $mem);
+}
