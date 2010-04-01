@@ -1,0 +1,29 @@
+#!/usr/bin/stap
+
+probe process(@1).function("malloc"){
+  printf("TID: %i: malloc(%i) start\n", tid(), $bytes);
+}
+
+probe process(@1).function("malloc").return{
+  printf("TID: %i: malloc(%i) end\n", tid(), $bytes);
+}
+
+probe process(@1).function("free"){
+  printf("TID: %i: free() enter\n", tid());
+}
+
+probe process(@1).function("free").return{
+  printf("TID: %i: free() end\n", tid());
+}
+
+probe process.syscall{
+  if ($syscall == 12){
+    printf("TID: %i: brk(0x%x) start\n", tid(), $arg1);
+  }
+}
+
+probe process.syscall.return{
+if ($syscall == 12){
+    printf("TID: %i: brk() end returns %x\n", tid(), $return);
+  }
+}
