@@ -11,6 +11,7 @@ diplomka:
 
 semestral:
 	make -C SEP all
+	make -C SEP-prezentace all
 
 program:
 	make -C src all
@@ -28,3 +29,4 @@ clean:
 	make -C src clean
 	make -C DIP clean
 	make -C EEICT clean
+	make -C SEP-prezentace clean

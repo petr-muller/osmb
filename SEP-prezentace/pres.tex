@@ -1,0 +1,85 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\author{Petr Muller}
+\title{Nástroj pro analýzu výkonu alokátorů paměti v operačním systému Linux}
+\date{8.1.2010}
+\usetheme{Copenhagen}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{Dynamická alokace paměti}
+\begin{itemize}
+  \item Přidělování paměti za běhu programu (ne za kompilace)
+  \item Důvody: neznámé množství, efektivita
+  \item Alokátor pracuje s pamětí od jádra v uživatelském prostoru
+  \item {\em On-line} algoritmus
+  \item S používanou (nevrácenou programem) pamětí nemůže alokátor nijak pracovat
+  \item ptmalloc2 (glibc), TCmalloc (Google), Hoard, jemalloc...
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Cíle projektu}
+{\em Poskytnout nástroj pro sběr a interpretaci relevantních výkonnostních metrik DMA}
+\begin{block}{Semestrální projekt}
+\begin{itemize}
+  \item Zjistit relevantní výkonnostní metriky
+  \item Zjistit faktory, které tyto metriky mohou ovlivňovat
+  \item Navrhnout nástroj: ovlivňování faktorů, sběr metrik
+\end{itemize}
+\end{block}
+\begin{block}{Diplomová práce}
+\begin{itemize}
+  \item Implementace
+  \item Testování na různých DMA
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}
+\frametitle{Výkonnostní metriky alokátorů}
+\begin{itemize}
+  \item Doba alokace (časová režie)
+  \item Fragmentace
+  \item Paměťová režie (nerozlišitelná)
+  \item Lokalita a rozložení v paměti
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Faktory ovlivňující výkon}
+\begin{itemize}
+  \item Cena příslušných systémových volání: {\tt brk, mmap}
+  \item Velikost požadavků
+  \item Pořadí požadavků
+  \item Počet vláken aplikace
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Návrh nástroje}
+\begin{itemize}
+  \item Vstupní soubor (scénář) popisující hodnoty faktorů je přeložen do C
+  \item Do scénáře se vloží sledovací kód, spustí se a zvnějšku sleduje
+  \item Z dostatečného počtu vzorků se zpracují informace
+  \item Nástroj pro tvorbu scénářů připojením k reálnému programu
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Diplomová práce}
+\begin{itemize}
+  \item Implementace
+  \item Testování na různých DMA
+  \item Zhodnocení vlastností různých DMA
+\end{itemize}
+
+\begin{center}
+Děkuji za pozornost
+\end{center}
+\end{frame}
+
+\end{document}
