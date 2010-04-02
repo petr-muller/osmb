@@ -1,21 +1,21 @@
 memory-limit = 2000
 threads      = 5
 
-workjob 1 = {
+workjob w1 = {
   alloc one 40 by 4
   alloc two 24 by 8
   alloc three 30
-  work read whole one seq
-  work write whole two seq
-  work both random three random
-  work both random three seq
+  work read whole one sequential
+  work write whole two sequential
+  work rw random three random
+  work wr random three backwards
   dealloc one
   dealloc two
   dealloc three
 }
 
-thread 1 does workjob 1 times 1000
-thread 2 does workjob 1 times 500
-thread 3 does workjob 1 times 600
-thread 4 does workjob 1 times 700
-thread 5 does workjob 1 times 2000
+thread 1 does workjob w1 times 1000
+thread 2 does workjob w1 times 500
+thread 3 does workjob w1 times 600
+thread 4 does workjob w1 times 700
+thread 5 does workjob w1 times 2000
