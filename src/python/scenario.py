@@ -1,42 +1,3 @@
-class CommandFactory:
-  def createAllocation(self, cmdlist):
-    iden = cmdlist[1]
-    amount = cmdlist[2]
-
-    command = Allocation(iden, amount)
-    if len(cmdlist) > 3:
-      if cmdlist[3] == "by":
-        command.setUnitLength(cmdlist[4])
-      else:
-        #TODO: FIX THE ERROR REPORTING WHEN PARSING
-        raise ValueError("Crapz0r")
-
-    return command
-
-  def createWork(self, cmdlist):
-    type = cmdlist[1]
-    amount = cmdlist[2]
-    ident = cmdlist[3]
-    direction = cmdlist[4]
-
-    return Work(type, amount, ident, direction)
-
-  def createDeallocation(self, cmdlist):
-    return Deallocation(cmdlist[1])
-
-  def __init__(self):
-    self.knownCommands = {}
-
-    self.knownCommands["alloc"] = self.createAllocation
-    self.knownCommands["work"] = self.createWork
-    self.knownCommands["dealloc"] = self.createDeallocation
-
-  def parseLine(self, line):
-    commandList = line.split()
-    cmdKeyword = commandList[0]
-
-    return self.knownCommands[cmdKeyword](commandList)
-
 class Command:
   pass
 
@@ -44,10 +5,6 @@ class Allocation(Command):
   def __init__(self, ident, amount):
     self.identifier = ident
     self.amount = amount
-    self.unitLength = 1
-
-  def setUnitLength(self, length):
-    self.unitLength = length
 
   def getBefore(self):
     return (self.identifier, False)
@@ -104,6 +61,9 @@ class Workjob:
   def getMaxMem(self):
     return 0
 
+  def __str__(self):
+    return "Workjob [%s]: %i commands" % (self.name, len(self.commands))
+
 class Thread:
   def __init__(self, threadId, workjob, reps):
     self.id = threadId
@@ -129,24 +89,11 @@ class Scenario:
     self.workjobs = {}
     self.memoryOver = False
 
-  def readFrom(self, file):
-    lines = file.readlines()
+  def setMemLimit(self, limit):
+    self.memlimit = limit
 
-    for line in lines:
-      parsed = line.split()
-      if len(parsed) == 0:
-        continue
-      drive = parsed[0]
-      if drive == "memory-limit":
-        self.memlimit = parsed[2]
-      elif drive == "threads":
-        self.thread = parsed[2]
-      elif drive == "workjob":
-        pass
-      elif drive == "thread":
-        pass
-      else:
-        raise ValueError("Naka mrdka: %s" % drive)
+  def setThrLimit(self, limit):
+    self.threadCount = limit
 
   def addWorkjob(self, workjob):
     self.workjobs[workjob.getID()] = workjob
@@ -170,3 +117,17 @@ class Scenario:
     if totalMem > self.memlimit:
       print >> sys.stderr, "Threads can consume more memory than limit: %s > %s" % (totalMem, self.memlimit)
       self.memoryOver = False
+
+  def __str__(self):
+    return """Memory limit: %i
+Threads: %i
+===============================================================================
+Workjobs:
+%s
+===============================================================================
+Threads:
+%s
+""" % ( self.memlimit,
+        self.threadCount,
+        "\n".join(["%s" % x for x in self.workjobs.values()]),
+        "\n".join(self.threads))
