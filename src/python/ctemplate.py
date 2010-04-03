@@ -13,7 +13,7 @@ def getWorkjobs(threads):
   for thread in threads:
     funcName = 'function_%s_%s' % (thread.id, thread.workjob.name)
     prototype = 'void *%s (void *arg){\n' % funcName
-    bodystart = '  for (long iteration = 0; iteration < %s; iteration++){\n' % thread.repetitions
+    bodystart = '  char helper;\n  for (long iteration = 0; iteration < %s; iteration++){\n' % thread.repetitions
     ids = []
     loopbody = ''
     for command in thread.workjob.commands:

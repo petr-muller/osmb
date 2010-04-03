@@ -1,4 +1,5 @@
 import ctemplate
+import random
 
 class Command:
   pass
@@ -19,6 +20,12 @@ class Allocation(Command):
   
   def asC(self):
     return '%s = malloc(%s);' % (self.identifier, self.amount)
+  
+  def __str__(self):
+    return 'alloc %s %s' % (self.identifier, self.amount)
+  
+  def propagate(self, dic):
+    dic[self.identifier] = self.amount
 
 class Work(Command):
   def __init__(self, type, amount, ident, direction):
@@ -26,6 +33,7 @@ class Work(Command):
     self.amount = amount
     self.ident = ident
     self.direction = direction
+    random.seed(0)
 
   def getBefore(self):
     return (self.ident, True)
@@ -37,7 +45,44 @@ class Work(Command):
     return self.ident
   
   def asC(self):
+    commands = { 'read'  : 'helper = %s[iterator];' % self.ident,
+                 'write' : '%s[iterator] = %i;' % (self.ident, random.randint(0,127)),
+                 'rw'    : 'helper = %s[iterator]; %s[iterator] = %i;' % (self.ident, self.ident, random.randint(0,127)),
+                 'wr'    : '%s[iterator] = %i; helper = %s[iterator];' % (self.ident, random.randint(0,127), self.ident)
+                 }
+    if self.amount == 'whole':
+      if self.direction == 'sequential':
+        return 'for (long iterator=0; iterator < %s; iterator++){%s}' % (self.size, commands[self.type])
+      elif self.direction == 'backwards':
+        return 'for (signed long iterator=%i; iterator >= 0; iterator--){%s}' % (self.size-1, commands[self.type])
+      elif self.direction == 'random':
+        sequence = range(self.size)
+        random.shuffle(sequence)
+        comseq = []
+        for item in sequence:
+          comseq.append(commands[self.type].replace('iterator', str(item)))
+        return '\n'.join(comseq)
+    elif self.amount == 'random':
+      sample_size = random.randint(1, self.size)
+      sample = random.sample(xrange(self.size), sample_size)
+      if self.direction == 'sequential':
+        sample.sort()
+      elif self.direction == 'backwards':
+        sample.sort()
+        sample.reverse()
+      
+      comseq = []
+      for item in sample:
+        comseq.append(commands[self.type].replace('iterator', str(item)))
+      return '\n'.join(comseq)    
+
     return ''
+  
+  def __str__(self):
+    return 'work %s %s %s %s' % (self.type, self.amount,
+                                 self.ident, self.direction)
+  def propagate(self, dic):
+    self.size = dic[self.ident]
 
 class Deallocation(Command):
   def __init__(self, ident):
@@ -55,6 +100,12 @@ class Deallocation(Command):
   def asC(self):
     return 'free(%s);' % self.identifier
 
+  def __str__(self):
+    return 'dealloc %s' % self.identifier
+  
+  def propagate(self, dic):
+    del dic[self.identifier]
+    
 class Workjob:
   def __init__(self, name):
     self.name = name
@@ -69,11 +120,14 @@ class Workjob:
     self.valid = True
     errors = []
     allocated = {}
+    allocated_size = {}
     for command in self.commands:
       id, before = command.getBefore()
       if allocated.get(id, False) != before:
         self.messages.append('Workjob %s: command "%s" in wrong state (unallocated)' % (self.name, command))
         self.valid = False
+      else:
+        command.propagate(allocated_size)
       id, after = command.getAfter(before)
       allocated[id] = after
 
@@ -153,7 +207,7 @@ class Scenario:
     for thread in self.threads:
       thread.validate(self.memlimit)
       if not thread.isValid():
-        self.messages.append(thread.getMessages())
+        self.messages.extend(thread.getMessages())
         self.valid = False
       memorySum += thread.getMaxMem()
         

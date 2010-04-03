@@ -14,5 +14,8 @@ if __name__ == '__main__':
   if scen.isValid():
     print scen.translateToC()
   else:
+    printed = []
     for message in scen.getMessages():
-      print message
+      if message not in printed:
+        printed.append(message)
+        print message
