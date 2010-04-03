@@ -1,3 +1,5 @@
+import ctemplate
+
 class Command:
   pass
 
@@ -11,6 +13,12 @@ class Allocation(Command):
 
   def getAfter(self, before):
     return (self.identifier, True)
+  
+  def getIdentifier(self):
+    return self.identifier
+  
+  def asC(self):
+    return '%s = malloc(%s);' % (self.identifier, self.amount)
 
 class Work(Command):
   def __init__(self, type, amount, ident, direction):
@@ -24,6 +32,12 @@ class Work(Command):
 
   def getAfter(self, before):
     return (self.ident, before)
+  
+  def getIdentifier(self):
+    return self.ident
+  
+  def asC(self):
+    return ''
 
 class Deallocation(Command):
   def __init__(self, ident):
@@ -34,26 +48,42 @@ class Deallocation(Command):
 
   def getAfter(self, before):
     return (self.identifier, False)
+  
+  def getIdentifier(self):
+    return self.identifier
+  
+  def asC(self):
+    return 'free(%s);' % self.identifier
 
 class Workjob:
   def __init__(self, name):
     self.name = name
     self.commands = []
+    self.valid = False
+    self.messages = []
 
   def addCommand(self, command):
     self.commands.append(command)
 
   def validate(self, memlimit):
+    self.valid = True
     errors = []
     allocated = {}
     for command in self.commands:
       id, before = command.getBefore()
       if allocated.get(id, False) != before:
-        print "Kaboom"
+        self.messages.append('Workjob %s: command "%s" in wrong state (unallocated)' % (self.name, command))
+        self.valid = False
       id, after = command.getAfter(before)
       allocated[id] = after
 
     return errors
+  
+  def isValid(self):
+    return self.valid
+  
+  def getMessages(self):
+    return self.messages
 
   def getID(self):
     return self.name
@@ -69,13 +99,20 @@ class Thread:
     self.id = threadId
     self.workjob = workjob
     self.repetitions = reps
+    self.valid = False
 
   def __str__(self):
-    return "Thread %s" % self.id
+    return "Thread %s: workjob %s" % (self.id, self.workjob.name)
 
   def validate(self, memlimit):
     errors = self.workjob.validate(memlimit)
     return errors
+  
+  def isValid(self):
+    return self.workjob.isValid()
+  
+  def getMessages(self):
+    return self.workjob.getMessages()
 
   def getMaxMem(self):
     return self.workjob.getMaxMem()
@@ -88,6 +125,8 @@ class Scenario:
     self.threads = []
     self.workjobs = {}
     self.memoryOver = False
+    self.valid = False
+    self.messages = ['Scenario was not validated']
 
   def setMemLimit(self, limit):
     self.memlimit = limit
@@ -101,22 +140,32 @@ class Scenario:
   def addThread(self, thread):
     self.threads.append(thread)
 
+  def isValid(self):
+    return self.valid
+  
+  def getMessages(self):
+    return self.messages
+
   def validate(self):
-    threadMemory = []
-    errors = []
+    self.valid = True
+    memorySum = 0
+
     for thread in self.threads:
-      threrrors = thread.validate(self.memlimit)
-      if len(threrrors) > 0:
-        for error in threrrors:
-          print >> sys.stderr, "%s: %s" % (thread, error)
-        self.memoryOver = True
-
-      threadMemory.append(thread.getMaxMem())
-
-    totalMem = sum(threadMemory)
-    if totalMem > self.memlimit:
-      print >> sys.stderr, "Threads can consume more memory than limit: %s > %s" % (totalMem, self.memlimit)
-      self.memoryOver = False
+      thread.validate(self.memlimit)
+      if not thread.isValid():
+        self.messages.append(thread.getMessages())
+        self.valid = False
+      memorySum += thread.getMaxMem()
+        
+    if memorySum > self.memlimit:
+      self.messages.append("Threads can consume more memory than limit: %s > %s" % (memorySum, self.memlimit))
+      self.valid = False
+      
+  def translateToC(self):
+    source =  ctemplate.getHeader(self.memlimit, self.threadCount)
+    source += ctemplate.getWorkjobs(self.threads)
+    source += ctemplate.getMain(self.threads)
+    return source 
 
   def __str__(self):
     return """Memory limit: %i
@@ -130,4 +179,4 @@ Threads:
 """ % ( self.memlimit,
         self.threadCount,
         "\n".join(["%s" % x for x in self.workjobs.values()]),
-        "\n".join(self.threads))
+        "\n".join(['%s' % x for x in self.threads]))

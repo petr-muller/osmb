@@ -1,22 +1,18 @@
 #!/usr/bin/python
 
 import scenario
+import scenario_parser
+import sys
 
-print "IMPORT:    PASS"
-
-fact = scenario.CommandFactory()
-
-print "CTOR:      PASS"
-
-comm = fact.parseLine("alloc one 40 by 4")
-comm = fact.parseLine("dealloc one")
-comm = fact.parseLine("work read whole one seq")
-
-print "PARSE:     PASS"
-
-scen = scenario.Scenario()
-fp = open("../scenarios/small-lot.alloc", "r")
-scen.readFrom(fp)
-fp.close()
-
-print "FILE:      PASS"
+if __name__ == '__main__':
+  fp = open(sys.argv[1], 'r')
+  scen = scenario_parser.parseScenario(fp)
+  fp.close()
+  
+  scen.validate()
+  
+  if scen.isValid():
+    print scen.translateToC()
+  else:
+    for message in scen.getMessages():
+      print message

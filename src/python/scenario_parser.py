@@ -19,6 +19,12 @@ def p_scenario(p):
       scen.setThrLimit(fstatement.data)
     elif fstatement.type == "WJ":
       scen.addWorkjob(fstatement.data)
+    elif fstatement.type == "THDEF":
+      thread = fstatement.data
+      wjname = thread.workjob
+      wj = scen.workjobs[wjname]
+      thread.workjob = wj
+      scen.addThread(thread)
 
   p[0] = scen
 
@@ -33,8 +39,8 @@ def p_fstatenent_list(p):
 def p_fstatement(p):
   """fstatement : fstatement_memlimit
                 | fstatement_threadlimit
-                | fstatement_wjdef"""
-#                | fstatement_thdef"""
+                | fstatement_wjdef
+                | fstatement_thdef"""
   p[0] = p[1]
 
 def p_fstatement_memlimit(p):
@@ -95,11 +101,15 @@ def p_work_dir(p):
               | WDIR_BACK
               | WPART_RANDOM"""
   p[0] = p[1]
+  
+def p_fstatement_thdef(p):
+  """fstatement_thdef : THREAD NUMBER DOES WORKJOB IDENTIFIER TIMES NUMBER"""
+  p[0] = Statement("THDEF", scenario.Thread(p[2], p[5], p[7]))
 
-parser = yacc.yacc()
-fp = open('test-scen', 'r')
-contents = fp.read()
-fp.close()
-result = parser.parse(contents)
 
-print result
+def parseScenario(fp):
+  parser = yacc.yacc()
+  contents = fp.read()
+  result = parser.parse(contents)
+
+  return result

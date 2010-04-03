@@ -16,6 +16,8 @@ reserved= {
     'random'        : 'WPART_RANDOM',
     'sequential'    : 'WDIR_SEQ',
     'backwards'     : 'WDIR_BACK',
+    'does'          : 'DOES',
+    'times'         : 'TIMES',
 }
 
 tokens = (
