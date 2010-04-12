@@ -1084,6 +1084,53 @@ effectively override those in other shared libraries. Wrappers in this library
 need to call the real functions in system library, which is possible by dynamic
 lookup of that symbol using the RTLD\_NEXT pseudo-handle~\cite{RTLD_NEXT}.
 
+\chapter{Memory allocator analysis}
+\section{Analysed memory allocators}
+\subsection{GNU C library allocator (ptmalloc2)}
+\subsection{Thread-Caching Malloc (TCmalloc)}
+Thread-Caching malloc was written by Sanjay Ghemawat and Paul Menage from
+Google, Inc. This memory allocator is designed to be faster for the allocation
+of small objects in multi-threaded environment. Google observed some problems
+when their applications were using standard glibc allocator, ptmalloc2. The
+problems were insufficient speed of an allocator request, and a memory blowup
+in some scenarios, where ptmalloc2 memory arena system causes unnecessary large
+memory consumption. TCmalloc claims to be cca 6-times faster than ptmalloc2 for
+the allocation and deallocation of small objects, and it also claims to solve
+the described memory blowup problems by introducing a thread cache
+system~\cite{tcmalloc}. This system allows to move memory between the
+thread-local caches and the central storage area. Moving memory means changing ownership of the memory in
+this context: the same memory area can be a part of a cache of certain thread, and
+when it is not needed anymore (e.g. when the host application releases the
+objects stored in that memory area), the ownership can be transfered to the
+central storage, or even to the different thread. TCmalloc authors claim
+ptmalloc2 doesn't allow this.
+
+The example of how this can save memory is the following scenario: two threads
+both need 300MB of memory, but they do not need the memory in the same time.
+When the ownership of a memory area cannot be transferred, separate memory
+chunks have to be allocated for the threads. This means the allocator will
+request 600MB of memory from the operating system, even when the program never
+needs more then 300MB at one time. However, if the same memory can be used as a
+thread-local cache for more threads, the 300MB chunk can be provided to first
+thread, and then the same chunk is provided to the second thread. Total memory
+consumption is 300MB.
+
+The basic principles of TCmalloc: the allocator holds the central storage area,
+and it assigns parts of this area to each threads to be used as thread-local
+caches. The allocator considers the allocation requests smaller than some
+treshold as ``small'', the other as ``large''. Thread-local cache is used to
+provide space for small allocation requests, while large requests are allocated
+directly to the central storage, using different method. When a thread-local
+cache size exceeds a treshold (which is dynamic---the threshold is lower when
+the thread count is higher), some amount of free space in the cache is
+transfered to the central storage. This prevents the large waste of space in
+applications using large number of threads, where a lot of space would be taken
+by free chunks in thread-local cache~\cite{tcmalloc}.
+\subsection{Memory Allocator for Real-Time (TLSF)}
+\subsection{Jason Evans' malloc implementation (jemalloc)}
+\subsection{The Hoard memory allocator}
+
+
 % \section{Implementation decisions} The implementation itself is beyond the
 % scope of this term project, and will be done in future work on the diploma
 % thesis. However, several design related decision about implemetation were done
