@@ -19,7 +19,7 @@ class Allocation(Command):
     return self.identifier
   
   def asC(self):
-    return '%s = malloc(%s);' % (self.identifier, self.amount)
+    return '%s = ALLOCATE(%s);' % (self.identifier, self.amount)
   
   def __str__(self):
     return 'alloc %s %s' % (self.identifier, self.amount)
@@ -98,7 +98,7 @@ class Deallocation(Command):
     return self.identifier
   
   def asC(self):
-    return 'free(%s);' % self.identifier
+    return 'FREE(%s);' % self.identifier
 
   def __str__(self):
     return 'dealloc %s' % self.identifier

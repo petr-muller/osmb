@@ -6,7 +6,13 @@ def getHeader(ml, tl):
          '//   Memory limit: %s\n' \
          '//   Threads:      %s\n' \
          '#include <stdlib.h>\n' \
-         '#include <pthread.h>\n\n' % (date.today(), ml, tl)
+         '#include <pthread.h>\n\n'\
+         '#ifndef ALLOCATE\n'\
+         '  #define ALLOCATE malloc\n'\
+         '#endif\n\n'\
+         '#ifndef FREE\n'\
+         '  #define FREE free\n'\
+         '#endif\n\n' % (date.today(), ml, tl)
 
 def getWorkjobs(threads):
   body = ''
