@@ -2,8 +2,8 @@ memory-limit = 2000
 threads      = 5
 
 workjob w1 = {
-  alloc one 40 by 4
-  alloc two 24 by 8
+  alloc one 40
+  alloc two 24 
   alloc three 30
   work read whole one sequential
   work write whole two sequential
