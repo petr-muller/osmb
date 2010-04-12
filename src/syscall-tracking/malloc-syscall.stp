@@ -1,29 +1,40 @@
 #!/usr/bin/stap
 
 probe process(@1).function("malloc"){
-  printf("TID: %i: malloc(%i) start\n", tid(), $bytes);
+  printf("TS:%i TID:%i malloc(%i) start\n",gettimeofday_ns(), tid(), $bytes);
 }
 
 probe process(@1).function("malloc").return{
-  printf("TID: %i: malloc(%i) end\n", tid(), $bytes);
+  printf("TS:%i TID:%i malloc(%i) end\n",gettimeofday_ns(), tid(), $bytes);
 }
 
 probe process(@1).function("free"){
-  printf("TID: %i: free() enter\n", tid());
+  printf("TS:%i TID:%i free() enter\n",gettimeofday_ns(), tid());
 }
 
 probe process(@1).function("free").return{
-  printf("TID: %i: free() end\n", tid());
+  printf("TS:%i TID:%i free() end\n",gettimeofday_ns(), tid());
 }
 
-probe process.syscall{
-  if ($syscall == 12){
-    printf("TID: %i: brk(0x%x) start\n", tid(), $arg1);
+probe process(@2).syscall{
+  if ($syscall == $3){ //brk
+    printf("TS:%i TID:%i brk(0x%x) start\n",gettimeofday_ns(), tid(), $arg1);
+  }
+  if ($syscall == $4){ //mmap
+    if ($arg4 & $6){
+      printf("TS:%i TID:%i TD:%i mmap(length=%i) start\n", gettimeofday_ns(), tid(), $arg4, $arg2);
+    }
+  }
+  if ($syscall == $5){ //munmap
+    printf("TS:%i TID:%i munmap(addr=0x%x, length=%i) start\n", gettimeofday_ns(), tid(), $arg1, $arg2);
   }
 }
 
-probe process.syscall.return{
-if ($syscall == 12){
-    printf("TID: %i: brk() end returns %x\n", tid(), $return);
+probe process(@2).syscall.return{
+  if ($syscall == $3){
+    printf("TS:%i TID:%i brk() end returns %x\n",gettimeofday_ns(), tid(), $return);
+  }
+  if ($syscall == $4){ //mmap
+    printf("TS:%i TID:%i mmap() end returns %x\n", gettimeofday_ns(), tid(), $return);
   }
 }
