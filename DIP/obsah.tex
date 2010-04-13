@@ -1126,10 +1126,38 @@ the thread count is higher), some amount of free space in the cache is
 transfered to the central storage. This prevents the large waste of space in
 applications using large number of threads, where a lot of space would be taken
 by free chunks in thread-local cache~\cite{tcmalloc}.
-\subsection{Memory Allocator for Real-Time (TLSF)}
+\subsection{Two Level Segregate-Fit (TLSF)}
+TLSF is a dynamic memory allocator designed for the purpose of use in
+real-time, embeeded and other resource constrained systems. It was developed by
+a research group on Technical University of Valencia in Spain. Main design
+criteria of TLSF are defined by the real-time system domain: bounded response
+time, speed and efficient memory use (low fragmentation). TLSF claims to have a
+constant request cost O(1), with very low latency (claiming the number of 168
+CPU instructions per request). For fragmentation, TLSF claims to have an average
+fragmentation cca 15\%, and a measurement worst case was 25\%.
 \subsection{Jason Evans' malloc implementation (jemalloc)}
 \subsection{The Hoard memory allocator}
+The author of Hoard memory allocator is Emery Berger from the University of
+Massachusetts Amherst, and the first version was written in year 2000. The initial goal of the
+Hoard allocator was to solve problems introduced by poor allocator performance
+in multithreaded programs, especially avoiding false sharing and memory blowup.
+Scalability, speed and low fragmentation were the additional
+criteria~\cite{hoard}.
 
+The main principle of Hoard is similar to that of TCmalloc. The allocator
+creates a separate heap for all threads, and a main global heap. This provides
+the elimination of a performance hit caused by lock contention: different thread
+requests are satisfied from different heaps. Ownership of memory can be changed
+from global heap to separate thread heap when more memory is needed, or vice
+versa when a thread heap contains a lot of free space. Hoard tries to optimize
+the memory layout for caches by providing memory from a single cache line to a 
+single thread only. Hoard requests large areas of memory from the operating
+system. These areas are divided to {\em superblocks}. The size of a superblock
+is always a multiple of a page size. A superblock cannot be divided between more
+heaps, one heap always exclusively owns a superblock. Requests are satisfied by
+dividing and coalescing memory in one superblock. Huge memory requests (larger
+than a half of a superblock) are treated differently: separate memory areas are
+requested for them using {\tt mmap} system call or its variant~\cite{hoard}.
 
 % \section{Implementation decisions} The implementation itself is beyond the
 % scope of this term project, and will be done in future work on the diploma

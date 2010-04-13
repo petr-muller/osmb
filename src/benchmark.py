@@ -30,21 +30,24 @@ def simple_checked_command(message, command):
     print "[ FAIL ]"
     abort("Failure: %s" % message)
 
-def command_test(allocator):
+def command_test(allocator, malloc, free):
   verbose("Testing allocator: %s" % allocator)
 
   libpath   = tempfile.mkdtemp()
   verbose("Library path: %s" % libpath)
   command = ['gcc', '-shared', '-fPIC', '-std=c99',
              os.path.join(HELPER_PATH,FAKE_LIB),
-             '-o', os.path.join(libpath, 'libfakemalloc.so')]
+             '-o', os.path.join(libpath, 'libfakemalloc.so'),
+             "-DALLOCATE=%s" % malloc, "-DFREE=%s" % free ]
   simple_checked_command("Compiling fake malloc library", command)
   
   fp, fpath = tempfile.mkstemp()
   os.close(fp)
   verbose("Executable path: %s" % fpath)
   command = ['gcc', os.path.join(HELPER_PATH,TEST_FILE),
-             '-o', fpath, '-std=c99','-L%s' % libpath, '-lfakemalloc' ]
+             '-o', fpath, '-std=c99',
+             "-DALLOCATE=%s" % malloc, "-DFREE=%s" % free,
+             '-L%s' % libpath, '-lfakemalloc' ]
 
   simple_checked_command("Compiling the testcase", command)
   
@@ -82,7 +85,7 @@ def command_test(allocator):
   stdout = stdout.strip()
   stdout = stdout.split('\n')
   print "Running the testcase with the custom allocator".ljust(50),
-  if  retcode == 0 \
+  if retcode == 0 \
       and stdout.count("Fake malloc") == 0\
       and stdout.count("Fake free") == 0:
     print "[ PASS ]"
@@ -106,6 +109,12 @@ if __name__ == '__main__':
                     action="store_true", help="More verbose output")
   parser.add_option('-s', '--scenario', dest='scenario', metavar='FILE',
                     help='Scenario file to use')
+  parser.add_option('-m', '--malloc', dest='malloc', default='malloc',
+                    help="Name of malloc function in a library",
+                    metavar='MALLOC_FUNCTION')
+  parser.add_option('-f', '--free', dest='free', default='free',
+                    help="Name of free function in a library",
+                    metavar='FREE_FUNCTION')
   
   (options, args) = parser.parse_args()
   
@@ -121,4 +130,4 @@ if __name__ == '__main__':
     if not options.allocator:
       abort("Test command needs an allocator (-a option)")
     
-    command_test(options.allocator)
+    command_test(options.allocator, options.malloc, options.free)

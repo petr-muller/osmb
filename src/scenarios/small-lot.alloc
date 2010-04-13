@@ -1,9 +1,9 @@
 memory-limit = 2000
-threads      = 5
+threads      = 15
 
 workjob w1 = {
   alloc one 40
-  alloc two 24 
+  alloc two 24
   alloc three 30
   work read whole one sequential
   work write whole two sequential
@@ -14,8 +14,18 @@ workjob w1 = {
   dealloc three
 }
 
-thread 1 does workjob w1 times 1000
-thread 2 does workjob w1 times 500
-thread 3 does workjob w1 times 600
-thread 4 does workjob w1 times 700
-thread 5 does workjob w1 times 2000
+thread 1 does workjob w1 times 1000000
+thread 2 does workjob w1 times 500000
+thread 3 does workjob w1 times 600000
+thread 4 does workjob w1 times 700000
+thread 5 does workjob w1 times 2000000
+thread 6 does workjob w1 times 1000000
+thread 7 does workjob w1 times 500000
+thread 8 does workjob w1 times 600000
+thread 9 does workjob w1 times 700000
+thread 10 does workjob w1 times 2000000
+thread 11 does workjob w1 times 1000000
+thread 12 does workjob w1 times 500000
+thread 13 does workjob w1 times 600000
+thread 14 does workjob w1 times 700000
+thread 15 does workjob w1 times 2000000
