@@ -1,6 +1,6 @@
 [reqs]
-privs : normal
-needed : scenario,allocator,free,malloc,ssize,bsize
+privs = normal
+needed = scenario,allocator,free,malloc,ssize,bsize
 
 [run]
-command : run.sh
+command = ./run.sh

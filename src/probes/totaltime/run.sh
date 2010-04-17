@@ -7,6 +7,11 @@ BSIZE=""
 MALLOC=""
 FREE=""
 
+abort(){
+	echo "$1" >&2
+	exit 1 	
+}
+
 while getopts a:f:s:b:m:d: o
 do
 	case "$o" in
@@ -23,8 +28,7 @@ done
 if 	[ -z "$ALLOCATOR" ] || [ -z "$SSIZE" ] || [ -z "$BSIZE" ] ||\
 	[ -z "$SCENARIO" ] || [ -z "$MALLOC" ] || [ -z "$FREE" ]
 then
-	echo "Not all of mandatory options were supplied" >&2
-	exit 1
+	abort "Not all of mandatory options were supplied"
 fi
 
 EXECUTABLE=`mktemp`
@@ -43,8 +47,7 @@ fi
 LD_PRELOAD=$ALLOCATOR $EXECUTABLE >&2
 if [ "$?" != "0" ]
 then
-	echo "Test testcase run failed" >&2
-	exit 1
+	abort "Test testcase run failed"
 fi
 
 cat > $BATCHFILE << EOF
@@ -66,6 +69,6 @@ do
 				  --append\
 				  $BATCHFILE
 done
-python evaluate.py $OUTPUTFILE
+python evaluate.py $OUTPUTFILE || abort "Failed to evaluate the results" 
 
 rm $EXECUTABLE $BATCHFILE
