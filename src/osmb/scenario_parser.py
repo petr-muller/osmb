@@ -106,6 +106,8 @@ def p_fstatement_thdef(p):
   """fstatement_thdef : THREAD NUMBER DOES WORKJOB IDENTIFIER TIMES NUMBER"""
   p[0] = Statement("THDEF", scenario.Thread(p[2], p[5], p[7]))
 
+def p_error(p):
+  print "Syntax error in input!"
 
 def parseScenario(fp):
   parser = yacc.yacc()
