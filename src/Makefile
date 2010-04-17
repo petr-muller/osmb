@@ -4,5 +4,5 @@ all:
 
 clean:
 	make -C scenario-capture clean
-	make -C python clean
+	make -C osmb clean
 	@echo "Cleaning all that stuff"
