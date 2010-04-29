@@ -3,7 +3,7 @@
 
 int main(){
   int *pointer = NULL;
-  for (int i=0; i<3; i++){
+  for (int i=1; i<4; i++){
     pointer = malloc(i*sizeof(int));
     free(pointer);
   }
