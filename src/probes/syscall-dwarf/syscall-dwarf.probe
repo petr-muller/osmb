@@ -1,0 +1,6 @@
+[reqs]
+privs = normal
+needed = scenario,allocator,free,malloc
+
+[run]
+command = ./run.sh

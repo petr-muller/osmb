@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <syscall.h>
 #include <stdio.h>
 #include <sys/mman.h>
