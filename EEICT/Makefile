@@ -7,4 +7,4 @@ check: prispevek.pdf
 	make clean
 
 clean:
-	rm -f	prispevek.pdf prispevek.aux prispevek.log
+	rm -f	prispevek.* *.nav *.log *.snm *.toc *.out *.vrb
