@@ -123,7 +123,8 @@ class Memory:
   def deallocate(self, command):
     address = command.getArg()
     if command.getType() == "end":
-      del self.allocations[address]
+      if address in self.allocations:
+        del self.allocations[address]
 
   def mmap(self, command):
     type = command.getType()

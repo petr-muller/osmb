@@ -11,17 +11,17 @@ abort(){
 }
 
 cleanup(){
-  rm -f $EXECUTABLE $GSN $OUTPUTFILE $MEMMODEL $PLOT
+  rm -f $EXECUTABLE $GSN $OUTPUTFILE $MEMMODEL
 }
 
 checked_command(){
-  $1
+  eval "$1"
 
   if [ "$?" != "0" ]
   then
     echo "$2 failed. Command:" >&2
     echo "$1" >&2
-    cleanup
+#    cleanup
     exit 1
   fi
 }
@@ -54,11 +54,16 @@ checked_command "gcc -o $GSN get_syscall_numbers.c -std=c99" "Helper compilation
 checked_command "stap malloc-syscall.stp -c $EXECUTABLE $ALLOCATOR $EXECUTABLE `$GSN` -o $OUTPUTFILE" "Trace collection"
 
 MEMMODEL=`mktemp`
-checked_command "./parse.py $OUTPUTFILE > $MEMMODEL" "Memory image construction"
+
+echo "==============================================================================="
+
+checked_command "./parse.py $OUTPUTFILE $MEMMODEL" "Memory image construction"
 
 PLOT=`mktemp`
 checked_command "./plotta.py $MEMMODEL $PLOT" "Plot generation"
 
+echo -e "\nPlot file: $PLOT.ps"
 cleanup
 
+echo "==============================================================================="
 exit 0

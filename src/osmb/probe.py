@@ -187,17 +187,17 @@ class Probe:
     pd = subprocess.Popen(command,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           env=self.env)
-    
+
     while pd.poll() is None:
       time.sleep(1)
 
-    os.chdir(savePath)  
+    os.chdir(savePath)
     if pd.returncode != 0:
       print >> sys.stderr, "Probe running failed:"
       for line in pd.stderr:
         print >> sys.stderr, line.strip()
       return False
-    
+
     else:
       for line in pd.stdout:
         print line,
