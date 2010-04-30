@@ -1,0 +1,14 @@
+memory-limit = 2000
+threads      = 15
+
+workjob w1 = {
+  alloc one 30000
+  alloc two 30000
+  alloc three 30000
+  alloc four 40000
+  alloc five 40000
+  alloc six 40000
+}
+
+thread 1 does workjob w1 times 1500
+thread 2 does workjob w1 times 1500
