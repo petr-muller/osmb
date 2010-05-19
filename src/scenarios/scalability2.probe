@@ -1,0 +1,7 @@
+workjob w1 = {
+  alloc one 128
+  dealloc one
+}
+
+thread 13 does workjob w1 times 2500000
+thread 23 does workjob w1 times 2500000

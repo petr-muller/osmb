@@ -1,14 +1,49 @@
-memory-limit = 2000
+memory-limit = 2000000000000
 threads      = 15
 
 workjob w1 = {
-  alloc one 30000
-  alloc two 30000
-  alloc three 30000
-  alloc four 40000
-  alloc five 40000
-  alloc six 40000
+  alloc a1 1
+  alloc a2 2
+  alloc a3 3
+  alloc a4 5
+  alloc a5 7
+  alloc a6 11
+  alloc a7 13
+  alloc a8 32
+  alloc a9 127
+  alloc a11 9
+  alloc a21 20
+  alloc a31 30
+  alloc a41 50
+  alloc a51 70
+  alloc a61 110
+  alloc a71 130
+  alloc a81 320
+  alloc a91 1270
 }
 
-thread 1 does workjob w1 times 1500
-thread 2 does workjob w1 times 1500
+workjob w2 = {
+  alloc a1 10
+  alloc a2 20
+  alloc a3 30
+  alloc a4 50
+  alloc a5 70
+  alloc a6 110
+  alloc a7 130
+  alloc a8 320
+  alloc a9 1270
+  alloc a11 9
+  alloc a21 2
+  alloc a31 3
+  alloc a41 5
+  alloc a51 3 
+  alloc a61 1
+  alloc a71 12
+  alloc a81 32
+  alloc a91 127
+  alloc a911 327
+  alloc a912 527
+  alloc a913 627
+}
+
+thread 1 does workjob w1 times 1

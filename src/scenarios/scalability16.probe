@@ -1,0 +1,21 @@
+workjob w1 = {
+  alloc one 128
+  dealloc one
+}
+
+thread 13 does workjob w1 times 2500000
+thread 23 does workjob w1 times 2500000
+thread 33 does workjob w1 times 2500000
+thread 43 does workjob w1 times 2500000
+thread 53 does workjob w1 times 2500000
+thread 63 does workjob w1 times 2500000
+thread 73 does workjob w1 times 2500000
+thread 83 does workjob w1 times 2500000
+thread 113 does workjob w1 times 2500000
+thread 213 does workjob w1 times 2500000
+thread 313 does workjob w1 times 2500000
+thread 413 does workjob w1 times 2500000
+thread 513 does workjob w1 times 2500000
+thread 613 does workjob w1 times 2500000
+thread 713 does workjob w1 times 2500000
+thread 813 does workjob w1 times 2500000

@@ -1,0 +1,61 @@
+workjob wj1 = {
+  alloc one 8
+  work read whole one sequential
+  dealloc one
+  alloc two 1024
+
+  alloc three 16
+  work read whole two backwards
+  work write whole three sequential
+  dealloc three
+
+  alloc three 312
+  work read whole two backwards
+  work write whole three sequential
+  dealloc three
+
+  dealloc two
+
+  alloc four 41024
+  alloc five 128
+  work read random four random
+  work write whole five sequential
+  dealloc four
+  work read whole five sequential
+  dealloc five
+}
+
+workjob wj2 = {
+  alloc one 12
+  alloc two 36
+  alloc t1 32
+  alloc huge 8192
+
+  work write whole huge sequential
+  work read whole huge sequential
+  work write whole one sequential
+  work write whole two sequential
+  work write whole t1 sequential
+  
+  dealloc huge
+  work read whole one sequential
+  work read whole two sequential
+  work read whole t1 sequential
+
+  dealloc one
+  dealloc t1
+
+  alloc t5 8
+  alloc t6 16
+  alloc t7 32
+  alloc t8 1
+
+  dealloc two
+  dealloc t5
+  dealloc t6
+  dealloc t7
+  dealloc t8
+}
+
+thread 1 does workjob wj1 times 100000
+thread 2 does workjob wj2 times 100000
