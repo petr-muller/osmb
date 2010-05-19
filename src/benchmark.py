@@ -51,7 +51,9 @@ def probe(name, options):
   probe.setFree(options.free)
   probe.setAllocator(options.allocator)
   probe.setPythonPath(os.path.join(os.getcwd()))
-  
+  probe.setMArg(options.marg)
+  probe.setFArg(options.farg)
+
   simple_checked_result("Probe validation", probe.validate())
   simple_checked_result("Probe preparation", probe.prepare())
   simple_checked_result("Probe run", probe.launch())
@@ -143,22 +145,26 @@ if __name__ == '__main__':
                     metavar='FREE_FUNCTION')
   parser.add_option("-p", "--probe", dest="probe", default=None,
                     help="Probe name", metavar="PROBE")
-  parser.add_option("-c", "--count", dest="ssize", default=1,
+  parser.add_option("-c", "--count", dest="ssize", default=10,
                     help="Sample size (number of measurements)",
                     metavar="NUMBER")
   parser.add_option("-b", "--bsize", dest="bsize", default=1,
                     help="Batch size (number of executions per measurements)",
                     metavar="NUMBER")
-  
+  parser.add_option("-l", "--malloc-arg", dest="marg", default="bytes",
+                    help="Name of the malloc arg in the library")
+  parser.add_option("-e", "--free-arg", dest="farg", default="mem",
+                    help="Name of the free arg in the library")
+
   (options, args) = parser.parse_args()
-  
+
   VERBOSE = options.verbose
-  
+
   if len(args) != 1:
     abort("Incorrect number of arguments. Needs exactly one command")
 
   verbose("Command: %s" % args[0])
-  
+
   command = args[0]
   if command == "test":
     if not options.allocator:
