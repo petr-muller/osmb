@@ -24,6 +24,20 @@
   pages = {30-64}
 }
 
+@manual{python-ply,
+  title  = {PLY (Python Lex-Yacc)},
+  author = {David M. Beazley},
+  note = {[online]~\url{http://www.dabeaz.com/ply/ply.html}},
+  edition = {3.3}
+}
+
+@manual{python,
+  title  = {Python v.2.6.5 documentation)},
+  note = {[online]~\url{http://docs,python.org}},
+  organization = {Python Software Foundation},
+  year = "2010"
+}
+
 @misc{glib-memalloc,
   title = {GLib Reference Manual - Memory Allocation},
   author = {GNOME Project},
@@ -32,12 +46,13 @@
   note = {Accessed on 11/2009}
 }
 
-@misc{tcmalloc,
+@misc{allocators:tcmalloc,
   title = {{T}{C}Malloc: A Thread-Caching malloc},
   author = {Ghemawat, Sanjay and Menage, Paul},
   note = {Accessed on 12/2009},
   howpublished={[online]~\url{http://goog-perftools.sourceforge.net/doc/tcmalloc.html}}
 }
+
 @book{posix,
   author = {IEEE{~}Std{~}1003.1},
   publisher = {IEEE and The Open Group},
@@ -48,7 +63,7 @@
 @manual{sbrk-manpage,
   title = {Linux Programmer’s Manual: brk, sbrk},
   organization = {Linux Foundation},
-  month = {June},
+  month = {December},
   year = {2008},
   edition = {3.22}
 }
@@ -59,6 +74,45 @@
   month = {December},
   year = {2008},
   edition = {3.22}
+}
+
+@manual{man-ld,
+  title = {Linux Programmer’s Manual: ld-linux.so},
+  organization = {Linux Foundation},
+  month = {January},
+  year = {2009},
+  edition = {3.22}
+}
+
+@manual{man-dlopen,
+  title = {Linux Programmer's Manual: dlopen},
+  organization = {Linux Foundation},
+  month = {December},
+  year = {2008},
+  edition = {3.22},
+}
+
+@manual{man-time,
+  title = {Linux Programmer's Manual: time},
+  organization = {Linux Foundation},
+  month = {November},
+  year = {2008},
+  edition = {3.22},
+}
+
+@manual{man-pthread_create,
+  title = {Linux Programmer's Manual: pthread\_create},
+  organization = {Linux Foundation},
+  month = {November},
+  year = {2008},
+  edition = {3.22},
+}
+@manual{man-pthread_join,
+  title = {Linux Programmer's Manual: pthread\_join},
+  organization = {Linux Foundation},
+  month = {November},
+  year = {2008},
+  edition = {3.22},
 }
 
 @misc{openldap-pres,
@@ -91,9 +145,146 @@
   year = {2008},
   month = {July}
 }
+
 @misc{tools:systemtap,
+  author = {Frank Ch. Eigler et al.},
   title = {Systemtap},
   note = {Accessed on 01/2010},
   howpublished = {[online]~\url{http://sourceware.org/systemtap/}},
   year = {2005-}
+}
+
+@misc{existing:sun-comparison,
+  author = {Joseph Attardi and Neelakanth Nadgir},
+  title = {A Comparison of Memory Allocators in Multiprocessors},
+  note = {Accessed on 04/2010},
+  howpublished = {[online]~Sun Developer Network: \url{http://developers.sun.com/solaris/articles/multiproc/multiproc.html}},
+  year = {2003},
+  month = {June},
+}
+
+@unpublished{allocators:tlsf,
+  title={Description of the TLSF Memory Allocator Version 2.0},
+  author={Miguel Masmano and Ismael Ripoll and Alfons Crespo},
+  note={[online] \url{http://rtportal.upv.es/rtdsa/files/rtportal.upv.es.rtdsa/documents/tlsf_desc.pdf}},
+  month={November},
+  year={2005},
+}
+
+@unpublished{onemalloc,
+  title={One Malloc To Rule Them All},
+  author={Joshua Habermann},
+  note={[online]~\url{http://blog.reverberate.org/2009/02/20/one-malloc-to-rule-them-all/}},
+  month={February},
+  year={2009}
+}
+
+
+@inproceedings{allocators:tlsf2,
+  title={{TLSF}: A New Dynamic Memory Allocator for Real-Time Systems},
+  author={Miguel Masmano et al.},
+  booktitle={16th Euromicro Conference on Real-Time Systems},
+  pages={79--88},
+  year={2004},
+  address={Catania, Italy},
+  month={July},
+  publisher={IEEE},
+}
+
+@inproceedings{locality,
+  title={Improving the Cache Locality Of Memory Allocation},
+  author={Dirk Grunwald and Benjamin Zorn and Robert Henderson},
+  booktitle={SIGPLAN'93 Conference on Programming Language Design And Implementation},
+  year={1993},
+  address={Albuquerque, New Mexico USA},
+  month={June},
+}
+
+@misc{allocators:dlmalloc,
+  author={Doug Lea},
+  title = {A Memory Allocator},
+  note = {Accessed on 04/2010},
+  howpublished = {[online]~\url{http://g.oswego.edu/dl/html/malloc.html}},
+  year={2000},
+  month={April}
+}
+
+@misc{allocators:ptmalloc,
+  author={Wolfram Gloger},
+  title={ptmalloc},
+  note={Accessed on 04/2010},
+  howpublished={[online] \url{http://www.malloc.de}},
+  year={2006},
+  month={June}
+}
+
+@misc{allocators:ptmalloc-ned,
+  author={Niall Douglas},
+  title={ptmalloc2 homepage},
+  note={Accessed on 04/2010},
+  howpublished={[online] \url{http://www.nedprod.com/programs/Win32/ptmalloc2/}},
+  year={2009},
+  month={March}
+}
+
+@misc{allocators:nedmalloc,
+  author={Nial Douglas},
+  title={nedmalloc Homepage},
+  note={Accessed on 04/2010},
+  howpublished={[online]~\url{http://www.nedprod.com/programs/portable/nedmalloc/index.html}},
+  year={2009},
+  month={March},
+}
+
+@misc{allocators:jemalloc,
+  author={Jason Evans},
+  title={A Scalable Concurrent {\tt malloc(3)} Implementation for FreeBSD},
+  note={Accessed on 04/2010},
+  howpublished={http://people.freebsd.org/~jasone/jemalloc/bsdscan2006/jemalloc.pdf},
+  year={2006},
+  month={April},
+}
+
+@misc{allocators:jemalloc:web,
+  author={Jason Evans},
+  title={Stand-alone jemalloc},
+  note={Accessed on 05/2010},
+  howpublished={http://www.canonware.com/jemalloc},
+  year={2010},
+}
+
+@misc{allocators:jemalloc:42,
+  author={Jason Evans},
+  title={New malloc ready, take 42},
+  note={Accessed on 04/2010},
+  howpublished={[online]~\url{http://unix.derkeiler.com/Mailing-Lists/FreeBSD/current/2005-12/msg00638.html}},
+  year={2005},
+  month={December},
+}
+
+
+@manual{tools:systemtap-redbook,
+  author = {Bart Jacob and Paul Larson and Breno H. Leitao and Saulo Augusto M Martins da Silva},
+  title = {SystemTap: Instrumenting the Linux Kernel for Analyzing Performance and Functional Problems},
+  organization = {IBM Corp.},
+  edition = {Redpaper},
+  month={January},
+  year={2009}
+}
+
+@manual{tools:systemtap-bg,
+  author = {Don Domingo and William Cohen},
+  title = {SystemTap Beginners Guide},
+  organization = {Red Hat, Inc.},
+  month = {July},
+  year = {2009},
+}
+
+@techreport{scalability,
+  author = {Chuck Lever and David Boreham},
+  title ={malloc() Performance in a Multithreaded Linux Environment},
+  year = {1999},
+  month = {11},
+  institution = {Linux Scalability Project},
+  note = {[online]~\url{http://www.ezdoum.com/upload/2/20021017001040/malloc.pdf}}
 }

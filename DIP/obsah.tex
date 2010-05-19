@@ -69,7 +69,7 @@ The advantage of using tuned or alternative memory allocator is often not great
 enough to justify additional work. Stock allocators are quite effective in most
 cases. But there are cases in which the gain can be quite high. High enough so we
 can see a major software gigant creating it's own malloc implementation to solve
-their problems with existing implementation \cite{tcmalloc}. Another cases can be
+their problems with existing implementation \cite{allocators:tcmalloc}. Another cases can be
 seen in some object-oriented libraries, which implement additional layer of
 memory management. The reason is that creating objects does quite a large number
 of small allocations, which is not effective enough. So these libraries keep a
@@ -225,7 +225,7 @@ oriented allocator, called Thread Caching malloc---TCmalloc. TCmalloc uses {\tt
 mmap} exclusively and has quite sophisticated system of allocation based on
 different allocation strategies based on the request size. It also provides a
 thread local cache for quick allocation of small requests to avoid locking
-\cite{tcmalloc}. TCmalloc is developed by Google, Inc. Few more experimental
+\cite{allocators:tcmalloc}. TCmalloc is developed by Google, Inc. Few more experimental
 alternative memory allocators do exist, but these do not seem to be used much.
 
 \section{Interesting performance metrics of memory allocators}
@@ -528,8 +528,20 @@ inside single thread, and in each thread in multithreaded environment.
 \label{methodology}
 
 In chapter \ref{metrics}, several metrics with some relevance to the performance
-of an allocator were analysed and described. This chapter will discuss the
-methodology of measuring these metrics.
+of an allocator were analysed and described. Initally, the existing tools, methods and benchmarks are evaluated. Later, the chapter discusses the methodology of measuring these metrics which will be used when designing the tool.
+
+\section{Existing tools and benchmarks}
+Most of the papers and articles discussing aspects of memory allocator performace mention the lack of the existing tools and benchmarks usable for producing reproducible and comparable data about performance~\cite{onemalloc,dalsi}. Temporal efficiency is discussed more often. For measuring speed of the allocators, a specific micro\-benchmarks are often produced ad\-hoc to obtain at least some results. These benchmarks sometimes measure the time the program takes to execute. Other benchmarks use different methods, such as using profiler (gprof or oprofile) to precisely analyse both the instruction count and time metrics for the testcase. Spatial efficiency is rarely measured and compared, probably due to a fact that there is no simple way how to measure it, as well as distinguish various types of wasted space: both up-front and per-request overhead, fragmentation, unnecessary large memory requests from the operating system. This section describes the different tools which are already used in allocator analysis.
+
+One of the first papers discussing both spatial and temporal perfomance uses real programs for the analysis of usage patterns and memory layout~\cite{DSAsurvey}. Different real program usage patterns are taken into account in discussion about the soundness of various memory allocation techniques.
+
+Several micro-benchmarks were created for testing the performance of the allocator in multi-threaded environment. This is logical: parallelization on various levels are a continuing thrend in the last twenty years, and the introduction of multi-threaded computing caused the need for multi-threaded dynamic memory allocator of appropriate performance. Some single-threaded allocators were improved to support also the multi-threaded scheme, some were designed precisely for multi-threaded environment. One of the first multithreaded performance analysis reports seems to be~\cite{scalability}, where ptmalloc2 is analysed using simple benchmark, doing just malloc-free pairs in a loop. The loop counts, request sizes and the number of threads are configurable. The purpose of the report was to analyse the multi-threaded performance of the allocator code itself, so this simple benchmark was perhaps valid. In practice though, this approach does not cover large aspect of allocator performance: just one of many different cases are being measured. In repeated malloc-free pairs of the constant size, the allocator will most likely use the same chunk of memory for the requests, so the case when an allocator actually needs to find a free chunk when it already has more free and busy chunks is not tested at all. Later in this text, this benchmark will be called Lever \& Boreham.
+
+Good source for benchmarks are the papers accompanying new memory allocators. These usually claim to be better in some aspect, and they use experimental data to prove their claims. The literature about BSD jemalloc~\cite{allocators:jemalloc, allocators:jemalloc:42} is using five benchmarks for temporal efficiency measurements. It used Lever \& Boreham benchmark, Ghostscript (real application: the PostScript language interpreter), sh6bench, cfrac and super-smack. Super-smack~\cite{super-smack} is a database load testing tool, so for the purpose of allocator testing it is considered as a real world application, not an allocator benchmark. Cfrac is a test program mentioned to be included with Hoard memory allocator. The recent Hoard distribution tarball does not contain any test or benchmark application, so this benchmark could not be examined. The last benchmark used by jemalloc authors is sh6bench~\cite{sh6bench}. This benchmark does an allocations of object of random sizes in a cycle. It supports multi-threaded testcases too. This benchmark seems to be used for the ongoing work on memory allocators, at least in BSD world~\cite{dragonfly-malloc}. It was also used for testing Hoard~\cite{allocators:hoard}.
+
+Several other malloc micro-benchmark were also found during standard web-search using Google. Their usage context is unknown: I just found the code, and the are mentioned just for the sake of completeness. One malloc benchmark is included with the distribution of OpenSolaris operating system~\cite{solaris-benchmark}.
+
+All of these benchmarks are representing a specific allocation scenarion, although more or less configurable (number of threads doing identical work, allocation sizes, etc.). They are usually used for measuring temporal efficiency of an allocator. None of the literature examined used any sysystematic benchmark for measuring spatial efficiency. Sometimes various metrics (unused memory etc.) are being observed by various means on these benchmarks.
 
 \section{Measuring memory overhead and fragmentation}
 \label{methodology:fragmentation}
@@ -551,7 +563,7 @@ actually allocated by the program. It also knows how much memory the allocator
 manages: the benchmark can intercept and log the memory requesting system calls
 or it can analyse the memory image of a process to discover the size of the heap.
 From these two numbers, the benchmark can compute how much memory is not used in
-program, but is granted by the operating system. There is no universal mean how
+ program, but is granted by the operating system. There is no universal mean how
 to discover how much of this unused memory is actually memory overhead (and is
 used by the memory allocator metadata) and how much is fragmentation (and is not
 used at all). This information is a completely internal in the allocator. Some
@@ -689,12 +701,12 @@ occuring during the runtime. In multithreaded environment, the misses count will
 probably heavily depend on the execution order of the threads, which means more
 experiments will have to be done for obtaining numbers with higher precision.
 
-\chapter{OSMB toolset}
+\chapter{OSMB toolset design}
 
-This chapter will discuss the design and implementation of the tool. OSMB is a
+This chapter will discuss the design and implementation of the tool. OSMB is an
 abbreviation of "Open Source Malloc Benchmark".
 
-\section{Design}
+\section{Initial design principles and goals}
 
 The toolset will be composed from several smaller tools which will measure
 various metrics as described in previous chapter. This approach was chosen
@@ -725,7 +737,7 @@ a generator. One such generator should be provided with the tool. The generator
 should be able to attach to any running process which uses dynamic memory
 allocation, and trace it's usage of {\tt malloc} and {\tt free}, creating a
 scenario file from the collected information. Tracing these functions will be
-done by using external tools: ltrace or Systemtap.
+done by using external tools: ltrace~\cite{tools:ltrace} or Systemtap~\cite{tools:systemtap}.
 
 The measurement tools should not do any unnecessary computing during the
 benchmark execution. They should only record the observations. These raw data
@@ -737,7 +749,7 @@ The measurement tools' function will we be direct implementation of the
 principles in chapter \ref{methodology}. The design for the remaining parts of
 the suite is described in the following subsections.
 
-\subsection{Scenario driver}
+\section{Scenario driver}
 
 The scenario driver will be the central piece of the whole suite. It will take
 the scenario file as an input, parse it and create a program image of the
@@ -749,7 +761,7 @@ during its execution the external observation tools will attach to it. The outpu
 of these external tools, combined with the output of the scenario binary itself
 is the result of the benchmark.
 
-\subsection{Tool for system call catching}
+\section{Tool for system call catching}
 
 Some of the metric measurement tools will benefit from the system call
 observations. There are two kinds of system calls which can occur during the
@@ -774,31 +786,31 @@ program. The recorder will have to be able to distinguish the memory allocations
 requests done by multiple threads, in order to correctly replicate the memory
 allocation scheme of the recorded program.
 
-\section{Data analysis tools and desired output}
+\subsection{Data analysis tools and desired output}
 
 The output of the benchmark run will have the form of the raw data, with no
 particular information in them. The suite will also provide several tools to help
-the user analyse and interpret these raw data. The tools should provide tools for
+the user analyse and interpret these raw data. These should provide tools for
 finding at least these outputs:
 
-\begin{itemize}
-\item Unused memory ratio. The maximal, minimal, average, median, mean, quartil
+\subsubsection{Unused memory ratio}
+The maximal, minimal, average, median, mean, quartil
 values and standard deviation should be reported. Also, the graph showing the
 unused memory ratio per run should be provided. Additionally, a third graph
 should be reported, showing the progression of the unused memory ratio dependent
 on the allocation and deallocation request during the time of an execution.
-\item Duration of one run. The maximal, minimal, average, median, mean, quartil
+\subsubsection{Duration of one run}
+The maximal, minimal, average, median, mean, quartil
 values and standard deviation should be reported. The graph showing the duration
 per run should be provided. The purpose of this graph is to quickly recognize and
 compare the speed stability of the allocators. Such an instable allocator would
 have large standard deviation compared to the average values, and this can be
 easily seen in a graph. Additionally, a graph showing the predicted speed of one
 run dependent on the system call cost should be provided, with the actual average
-system call cost highlighted. \item Duration of one allocation. Per each run, the
-tool should report minimal, maximal, average, mean, median, quartils and a
-standard deviation of a allocation duration. This metric can be taken in time or
-in CPU cycles. A graph showing the duration of allocations during one run should
-be reported. \item Fragmentation. The fragmentation metric found out as described
+system call cost highlighted.
+\subsubsection{Duration of one allocation}
+Per each run, the tool should report minimal, maximal, average, mean, median, quartils and a standard deviation of a allocation duration. This metric can be taken in time or in CPU cycles. A graph showing the duration of allocations during one run should be reported.
+\subsubsection{Fragmentation} The fragmentation metric found out as described
 in section \ref{methodology:fragmentation} should be reported just per one run.
 Because the number of measured values need not necesarilly stay the same in more
 executions of the scenario, the values are not easily comparable. Per one run, a
@@ -808,10 +820,11 @@ showing the progression of fragmentation during one execution of the scenario
 should be provided. Because the value of fragmentation can be unknown for some
 allocation and deallocation requests, the graph should highlight these
 allocations as unknown value to avoid confusion of misunderstanding of the graph.
-\item Locality and memory layout. For each thread in the system, a maximal,
+\subsubsection{Locality and memory layout}
+For each thread in the system, a maximal,
 minimal, average, mean, median, quartil values and standard deviation should be
 reported for these metrics: absolute value for the "gap" between two blocks and
-relative locality metric as described in \ref{methodology:locality}. This output
+relative locality metric as described in section \ref{methodology:locality}. This output
 is supposed to be computed for any temporal distance of allocations in the
 system. Also, for the input sizes of a cache line and each run, the system should
 report a percentage of temporally close allocations which could theoretically fit
@@ -820,26 +833,52 @@ representing a missed optimalization opportunity. Last memory layout metric to b
 reported is the minimum, maximum, average, median, quartils and standard
 deviation of the absolute distance between two blocks owned by different threads.
 Analogically, a percentage of block pairs which could cause false sharing for an
-input size of a cache line should be reported. \item Memory layout visualization.
+input size of a cache line should be reported.
+\subsubsection{Memory layout visualization}
 For each allocation during one run of a scenario, a visual image of process'
 address space should be reported for easy visualization of the allocator's
 function.
-\end{itemize}
 
 All of the graph outputs would provide the ability of showing the results of the
 several runs in one graph, providing easy comparison of them.
 
-\section{Implementation}
-\subsection{Scenario infrastructure}
+\chapter{OSMB implementation}
+
+This chapter describes the main body of this thesis --- the actual implementation of the OSMB tool. The major part of the work an integration of various third-party programs and utilities. These are briefly described in the first section, so they can be referred to in the later sections. Next section briefly discusses the important software development methods used during the development of the tool. After this section, the individual high-level components are described: the scenario and the probe subsystems. The latter also contains a description of the individual probes implementation. The last section descibes the integration of these two subsystems.
+
+\section{Third-party software and mechanisms}
+Because the tool employs a quite large number of different mechanisms and one-purpose tools for various purposes, this section describes the third-party software used, including the nontrivial use of the common OS infrastructure (e.g., the dynamic loader/linker)
+
+\subsection{Python language}
+Python language is a high-level scripting interpreted language, suitable for work with text, component integration and fast software development~\cite{python}. This language as chosen to allow the focus on the actual integration (the major part of work), not on the correct work with various resources, as it would happen if using C or C++.
+
+\subsection{Pylint}
+To assure the basic quality of Python code, the static analysis tool for Python was used on a regular basis during the development. Pylint is, as the name hints, a lint-like tool for the Python language. It analyses the code for various bug patterns, and warns about the parts of the code which does not satisfy some set coding standard~\cite{pylint}. The main purpose of Pylint during the development of OSMB was the guarding for the single coding standard compliance, because different parts of the Python code were created in different time and context, which made the coding standard hard to adhere to.
+
+\subsection{Systemtap}
+Systemtap is the tool allowing to instrument both kernel and user space code at runtime, working on event-action basis. The primary purpose of Systemtap is tracing, which means collecting specified data at the specified time~\cite{tools:systemtap, tools:systemtap-redbook, tools:systemtap-bg}, the example trace use case can be {\em print the value of parameter X of function Y whenever Y is called from function Z}. Because Systemtap provides the common tracing infrastructure for tracing both userspace (allocator function calls) and kernelspace (system calls), SystemTap was chosen for obtaining traces of various information about the execution of a testcase.
+Systemtap also introduces some problems to the tool: the tracing adds some overhead to the actual testcase execution, so it is not suitable to use whenever time needs to be measured. Tracing certain events in the kernel also needs the super-user permissions, which prohibits the use of probes needing this tracing to the unprivileged user.
+
+\subsection{LD\_PRELOAD mechanism of the dynamic loader}
+LD\_PRELOAD is the mechanism in the dynamic loader/linker, allowing to load specified shared library before all other. This can be used to override the functions in other shared libraries~\cite{man-ld}. In combination with dynamic library linking and its RTLD\_NEXT mechanism, this allows to wrap the allocator provided functions with the custom ones, where various instrumentation can be added. This mechanism is totally transparent to the user application, if the wrappers are written correctly, of course. This wrapper adds some overhead to the function call: second function call, the instrumentation, and the most expensive dynamic library loading and the symbol search. It cannot be used for temporal measurement probes.
+
+\subsection{NumPy/SciPy}
+
+NumPy/SciPy is a package for scientific computing in Python language. It is a collection of various efficient implementations of algoritms and structures often used in scientific computing, like multidimensial array structures, linear algebra functions, or statistics functions~\cite{scipy-statistics} OSMB uses just the statistics functions.
+
+\subsection{Gnuplot}
+
+Gnuplot is a multiplatform graphing utility, designed to be used interactively, but evolved to support also non-interactive use. It supports many plot types~\cite{gnuplot}. Usage from Python programs is allowed by gnuplot-py package~\cite{gnuplot-py}, which provides a Python interface to Gnuplot. Using this package, OSMB uses Gnuplot for various visual outputs.
+
+\section{Scenario infrastructure}
 The tool is based on the idea of measuring the allocator performance on any
 memory allocation scheme. The tool has to be able to create a correct working
-program which will allocate and deallocate memory based on this scheme. To
-describe schemes, the infrastructure around {\em scenarios} was created.
+program which will allocate and deallocate memory based on this scheme. Todescribe schemes, the infrastructure around {\em scenarios} was created.
 {\em Scenario} is a description of a memory allocation scheme, described in a
 domain specific language. This description is then translated to a valid C
 program, which is then compiled using standard C compiler. The resulting binary
-is an isolated testcase usable for various performance metrics measurement. 
-\subsubsection{Scenario files}
+is an isolated testcase usable for various performance metrics measurement.
+\subsection{Scenario files}
 For the purpose of describing memory allocation scheme, a simple language was
 created. Later in this text, it will be called {\em scenario language}. The
 language is text-based, and it was created to allow simple readability by a
@@ -887,7 +926,7 @@ set to 1024 bytes, which is totally sufficient for this case (every thread can
 have 5 bytes allocated at most, and there are three threads: no more then
 15 bytes will be allocated at any time). If the allocation size in workjob would
 be changed to 500, then the translator would end with error: three simultaneous
-threads could allocate 1500 bytes of memory, which is higher than the limit.  
+threads could allocate 1500 bytes of memory, which is higher than the limit.
 
 \begin{table}[h]
 \begin{center}
@@ -915,15 +954,15 @@ thread 3 does workjob w1 times 1000
 \end{center}
 \end{table} 
 
-\subsubsection{Scenario translator}
+\subsection{Scenario translator}
 The scenario translator is written in Python and consists of three simple parts:
 parsing, validating and generating. The parsing part is written using PLY
 complier construction tools~\cite{python-ply}. The output of the parser is the
-{\tt Scenario} instance. 
+{\tt Scenario} instance.
 
 Several validations are done on the parsed scenario. The scenario semantics is
 analysed by browsing through commands in all workjobs. Using this information,
-two types of invalid actions are identified: {\em work} and {\em dealloc} 
+two types of invalid actions are identified: {\em work} and {\em dealloc}
 commands on a variable which does not have any memory allocated at the moment.
 These are clearly invalid actions: if these commands were allowed, the resulting
 C program would contain code either working in or freeing the unallocated
@@ -948,6 +987,8 @@ of this cycle will be performed {\em n}-times, where {\em n} is the number of
 iterations set in the thread definition. The body of the cycle consists of a
 block generated from an appropriate workjob definition. The workjob is
 translated as a sequence of statements.
+
+Different approaches are taken when generating the main() function, depending on the number of threads in the scenario. In the case the scenario contains just one thread, the function containing the workjob loop is directly called, so the program is really single threaded. When the scenario contains more threads, a new thread is created for all workjob threads using pthread\_create~\cite{man-pthread_create}, in addition to the main thread. The testcase then actually contains more threads then it is defined in the appropriate scenario: an additional ``parent'' thread exists. This thread just waits for the other threads to finish using pthread\_join~\cite{man-pthread_join}. It does not do any memory management, so it should not affect the measurements.
 
 The allocation command is translated to an assignment of {\tt malloc} return
 value to the pointer with appropriate identifier. First allocation to pointer is
@@ -1047,46 +1088,88 @@ int main()
 \label{scenario-sample-trans}
 \end{center} 
 \end{table}
- 
-\subsubsection{Scenario capture}
+
+\subsection{Scenario capture}
 Two approaches were chosen for the tool allowing to capture a memory allocation
-scheme of a program: Systemtap tracing script\cite{systemtap} and a library
-containing wrappers for {\tt malloc} and {\tt free} functions. Both approaches
-were implemented, because they have different limits and advantages. The capture
-itself consists of two stages: tracing and analysis. At runtime, simple trace of
-memory allocation calls is created. To avoid performance hits on the traced
-program, no analysis is being performed on the trace at runtime. Every memory
-allocation request is recorded with the following information: TID, PID,
-requested size and the memory address of the chunk the allocator returned. This
-is needed to identify which chunks are being freed by the program: this address
-is the argument of the deallocation call. Deallocation requests are recorded with
-PID, TID and the address being freed. The full trace is then analysed and
-translated to the scenario file.
+scheme of a program: Systemtap tracing script\cite{tools:systemtap} and a library
+containing wrappers for {\tt malloc} and {\tt free} functions. Both approaches were implemented, because they have different limits and advantages.
 
-Systemtap tracing is very straightforward. Systemtap allows to hook probes to
-return from function event. It also provides access to function arguments, return
-value and several helper functions returning information about the environment
-where the function is executed: PID and TID of the process. Two probes exist: one
-for {\tt malloc} and second for {\tt free} calls. These probes just print the
-appropriate data whenever any thread goes through the return from {\tt malloc} or
-{\tt free}. The advantage is simple and reliable use. The disadvantage is that
-the user has to know the location of the actual function code (which
-binary--library or executable--contains this code). The user needs DWARF
-debugging information for this binary. However, in most cases, this location will
-be the system C library (usually GNU C library) and most distribution provide
-separate DWARF debugging information in separate packages. The second
-disadvantage is the need of root privileges to be able to use Systemtap.
+Systemtap tracing is very straightforward. Systemtap allows to hook probes to return from function event. It also provides access to function arguments, return value and several helper functions returning information about the environment where the function is executed: PID and TID of the process. Two probes exist: one for {\tt malloc} and second for {\tt free} calls. These probes just print the appropriate data whenever any thread goes through the return from {\tt malloc} or {\tt free}. Systemtap script allows to focus the capture on one precise process. Tracing can also start at anytime during the program runtime, because Systemtap is able to attach to already running programs. Tracing is also more reliable and less overhead is introduced. On the other side, Systemtap needs to have some internal information about the allocator: it needs the DWARF debuginfo as well as a knowledge about the naming of malloc and free parameters. Without this information, Systemtap cannot construct a probe. This is not a large constraint though, because most of the allocators in Linux world are shipped with an open source license, so the DWARF information can be obtained by a simple rebuild. All mainstream Linux distributions also provide separate debuginfo packages for their binary packages.
 
-Separate library wrapper is usable when the program uses dynamically linked
-memory allocator. A LD\_PRELOAD capability of a dynamic loader allows an
-additional library to be loaded before all others. Symbols in this library
-effectively override those in other shared libraries. Wrappers in this library
-need to call the real functions in system library, which is possible by dynamic
-lookup of that symbol using the RTLD\_NEXT pseudo-handle~\cite{RTLD_NEXT}.
+Second tracing utility exploits the LD\_PRELOAD capability of a dynamic loader, which allows an additional library to be loaded before all others. Symbols in this library effectively override those in other shared libraries. Wrappers in this library need to call the real functions in system library, which is possible by dynamic lookup of that symbol using the RTLD\_NEXT pseudo-handle~\cite{man-dlopen}. The LD\_PRELOAD version of the tracer is less reliable (LD\_PRELOAD is not recommended to use when reliability is needed) and has more overhead, because it needs to do expensive I/O actions during each request. It does not have the constraints though: the mechanism generally works for any shared library, just with the knowledge of the appropriate API. One feature of this approach is that it is triggered by a special environmental variable, recognized by the linker. This introduces two special properties to the tracing. Every process in the process tree of the original specified one will be traced too, because environmental variables are inherited. This may be useful, but it may also cause unnecessary clutter. The translating mechanism is prepared for this case: it makes separate scenario for each traced process. The second feature is that the tracing can only begin at the start of the process, when the dynamic loader is invoked. This means harder possibility to trace e.g. services invoked by initscript. This tracing method does not work for some multi-threaded applications: it causes them to crash with SIGSEGV. The reason for this is unknown, and because the Systemtap method works, it was not investigated.
 
-\chapter{Memory allocator analysis}
+The capture itself consists of two stages: tracing and analysis. At runtime, simple trace of memory allocation calls is created using one of the methods described above. To avoid performance hits on the traced program, no analysis is being performed on the trace at runtime. Every memory allocation request is recorded with the following information: TID, PID, requested size and the memory address of the chunk the allocator returned. This is needed to identify which chunks are being freed by the program: this address is the argument of the deallocation call. Deallocation requests are recorded with PID, TID and the address being freed. The full trace is then analysed and translated to the scenario file. The analysis utility is common to both Systemtap and LD\_PRELOAD variant of tracing: both tracers share the output format, so the analysis code can be shared.
+
+\section{The probes and data analysis}
+The design of the probe system is intended to be modular and well isolated from the other mechanisms. The probe is supposed to be focused on the collection of one specific information about the allocator, such as the information about fragmentation.
+
+It is not possible to run more probes during one session. There are two reasons for this. The first reason is that the actual data collection mechanisms can directly interfere with each other, for example when both probes need to wrap the allocator calls with some tracing function. This alone could be resolved by introducing a mechanism where the probes would not provide these wrappers directly, but they would specify actions needed both before and after the call, and the actual wrapper would be assembled by the generic probe mechanism. But there is also the second reason. The probes could interefere with each other during runtime, for example the overhead of expensive memory layout tracing probe would be included in the time measurement probe. To allow the probes to be fully universal, the constraint of running only one probe at a time is set. The generic mechanism for assembling wrappers is not needed and so it is not even implemented.
+
+\subsection{Probe subsystem implementation}
+The second part of OSMB is the probe system. Generally, the probe takes a parsed scenario as an input, and is responsible for execution and monitoring of a testcase, as well as for data collection and their analysis and interpretation. Probes are meant to be modular and written as easy as possible.
+
+\subsubsection{Probes}
+The probe consists of two parts: the appropriate common code (the Probe class in probe.py module), which represents the common functionality of probe: the execution, validation and data exchange protocols. The second part is unique for each probe: it is the monitoring, data collection and analysis code itself. The process of running one process is this: the instance of Probe class is created, and it receives the scenario file as input, along with other parameters. The probe translates the scenario to the C program, stored in a temporary file. It also validates all the other parameters and checks if all needed parameters are present and sane (different probes need different parameters). If everything is good at this point, the probe code itself is then run. The probe code is responsible for all the real work, which differs for the different probes.
+
+\subsubsection{Memory model}
+Some type of probes needs to have the information about how the memory looks at certain moment during the testcase execution. For this purpose, the memory model is constructed. The testcase execution is monitored either by the sole Systemtap script, or, when the DWARF information is not applicable or available, the combination of Systemtap script and LD\_PRELOAD wrapper. This monitoring produces a trace of memory related events, along with additional information. The events are both the start and the end of the allocator functions (malloc and free) and all three memory related system calls (mmap, munmap, brk).
+
+Main class to represent the memory image at one time is the Memory class from memmodel.py module. This class has all the information about the memory: addresses and sizes of both the memory areas it controls (the heap and mmap-ed regions) and the memory chunks provided to the user application. This class offers an interface for easy modification the memory image, mimicking the appropriate events~---~ user program reuqests and allocator-invoked system calls. To provide additional information about the memory, the class can be subclassed by the probes and additional functionality can be added.
+
+To represent current memory layout, the instance of Memory class in memmodel.py module is created. After creation, the instance represents empty memory: no memory was obtained from the operating system. Then the trace of the program actions is analysed: an instance of Command class is created for each line, representing one event. This command is sent as an input to the memory model, which modifies itself according to the command. This allows the controlling probe to analyse how the memory looks at any time during the exection.
+
+\subsection{Probe description: totaltime}
+
+The totaltime probe measures the total time the scenario takes to execute. The user can specify the size of both the batch and the sample. The batch size specifies how many times the testcase will be executed for one measurement. The sample size specifies how many measurements will be taken. The default value for the batch size is 1 (one execution per measurement), but it can be made larger when the testcase execution size is too small for the benchmarking to be reliable.
+
+The probe measures four metrics: user time, system time, real time and total time. User time is the amount of time spent processing the testcase in user mode, system time is nalogic. Real time is self-explanatory. This metric is only informative, because there are factors outside of the allocator scope which influence this metric: scheduling, number of cores, etc. Total time is simply the sum of user and system time. For all these four metrics, a statistical summary is provided. The probe also hints about the reliability of the benchmark. For this purpose, a value of relative standard error is used. This value is obtained by dividing the standard error of the mean by the mean value. The treshold value for the result to be considered as valid is 0.03, meaning the standard error of the mean if not larger than 3\% of the mean.
+
+A standard Unix measurement tool {\tt time}~\cite{man-time} is used to obtain the measurements. The {\tt time} built-in present in bash is not sufficient for the probe to work properly, because it does not provide the needed functionality.
+
+\subsection{Probe description: syscall-dwarf}
+
+The purpose of the syscall-dwarf probe is to provide an information about how the allocator works with memory related system calls. The main output of this probe is the information about the number of all operations: allocations/deallocations, and all three system calls. The probe has one visual output: a graph showing the progression of three metrics: the sum of memory obtained using mmap(), the stack size, and the sum of memory currently used by the program.
+
+The syscall-dwarf probe does not provide any compare command.
+
+\subsection{Probe description: used-memory}
+
+The purpose of the used-memory probe is to visualise the spatial effectivity of an allocator. From a constructed memory model, it computes both the size of a memory provided to the allocator by an operating system, and the size of memory used by the user program. The size of a memory the allocator owns is a sum of the heap size and the size of all regions obtained via mmap() system call. By dividing the used memory size by the total memory size, an used memory ratio metric is obtained.
+
+The used memory ratio is collected for all events related to the memory management. The output of the probe is the statistical analysis of this collection of measurements. The probe also has one visual output. The progression of the used memory ratio in time is visualized into a graph. In order for the visualization to be more illustrative, the ratio is converted to a percentage in the graph.
+
+The probe also provides simple comparing command, where the used memory ratio progressions of multiple allocators is visualized in a single graph. This allows an easy comparison of the spatial efficiency of multiple allocators in a given scenario.
+
+\subsection{Probe description: locality}
+
+Locality probe is intended to measure locality of subsequent memory allocations in a single thread. Because objects allocated close in time are usually used together, putting such allocations close to each other spatially can improve the program performance. The cause of such improvement is the better utilization of the cache.
+
+Locality probe uses the basic memory model augmented by watching the gap between subsequent allocations. Only the gap between current and previous allocation is computed: it does not make sense to measure any other pairs, because the gap will always be influenced by the size of an allocation between the non-subsequent allocation requests. Both absolute and relative (as defined in \ref{methodology:locality}) distances are reported and statistically analysed. For both values, the progression is also visualized into a graph.
+
+The original intention was also to measure also the distance of the chunks owned by different threads, in order to provide information about the possible vulnerability of the allocator to false sharing. This emerged as a problem: in order to be correct, the location of every chunk of a thread would have to be compared to an address of all other chunks which were allocated (or already busy) by all other threads during the whole chunk lifetime. This brings an amount of complexity, both computional and to the implementation. A trial implementation was made, but it did had very bad performance even for moderately large scenarios, so the idea was dropped.
+
+\section{Integration}
+Both phases of a session are integrated in one driving script, benchmark.py. This script is the main user interface, and is responsible for taking benchmark arguments. The script takes two commands: test and probe. The test command takes an allocator shared library path as a mandatory argument, and makes sure that it can be used as a working allocator. The allocator can have the appropriate functions called in an arbitrary way, so these names are configurable. The test command makes sure that these functions can be called from an user program, and that they behave like a standard memory allocator. This serves as a basic troubleshooting tool in the case when something in the benchmark session chains fail for some non-standard allocator library.
+
+The second command is the probe command. This command starts one benchmarking session, and it accepts a wide range of different arguments. The basic three are the allocator to be benchmarked and, scenario representing the desired workload for the benchmark and a probe to be run. Additional possible arguments are the names of appropriate functions, the size of a batch (how many times the scenario will be executed during one measurement) and a size of a sample (how many measurements will be taken).
+
+The probe command handles the whole benchmarking session. It translates the scenario files to C after the scenario is validated. Then it builds the appropriate probe objects and executes it.
+
+\chapter{Memory allocator analysis (tool testing)}
+This chapter describes the testing of the implemented tool. Several allocators usable unde Linux were gathered, and they are described in the first section of this chapter. Second section describes the experiments which were performed, and their results: the analysis of the allocators. The last section discusses the results of the testing of OSMB: how well the tool serves its purpose, how it works, and what pitfalls and missing functionality were discovered.
+
 \section{Analysed memory allocators}
+Several available memory allocators were gathered across the internet, and the suitable ones were chosen for OSMB testing. In order to be able to compare the reported behavior and metrics to the expected ones, the internals of the allocators were also studied. This section contains the brief description of all the tested allocators functionality.
+
 \subsection{GNU C library allocator (ptmalloc2)}
+The ptmalloc2 allocator is used in the GNU C library (glibc), which makes it the default allocator on the majority of Linux systems all over the world, because most of the popular Linux distributions ship glibc (or the fork of glibc, called eglibc) as a default C library, including Red Hat and SUSE enterprise distributions and the community distributions Fedora, openSUSE, Debian, Ubuntu and Mandriva~\cite{allocators:ptmalloc}. The original allocator, on which ptmalloc2 is based, was called dlmalloc and was written by Doug Lea~\cite{allocators:dlmalloc}. That allocator was focused on work in the single-threaded environment. Wolfram Gloger added a mechanism of separate thread arenas, which allows memory allocation without lock contention in multithreaded environment. This modified version of dlmalloc is called ptnmalloc, and ptmalloc2 is the second version of it.
+
+In single-threaded environment, ptmalloc2 allocates small chunks on the heap. The boundary where a chunk is considered small is configurable. These small chunks carry some metadata both at the beginning and at the end of the chunk, allowing the allocator the ability to directly traverse all the chunks from both directions. All free chunks are maintained in bins, where the chunks of the same size are grouped. The search for an available chunks are processed in smallest first, best fit order.
+
+In multi-threaded environment, the allocator creates separate arenas for every thread using mmap(). In this case the allocator works as if every thread had it separate heap. The arenas are mainained using mmap() and munmap() calls, brk() calls are not used at all.
+
+The chunks which are considered large are allocated their own space using mmap() system call. Because mmap() allocated chunk sizes have to be page aligned, some scenarios can introduce a non-trivial amount of overhead, like in a case of a large number of allocations $treshold + 1$ bytes large, where almost one full page would be wasted. Also, mmap() calls are known to be quite expensive. If a program makes lot of subsequent allocation requests large enough to invoke mmap() use, every request results in a system call, effectively making the allocator just a wrapper over a system call.
+
 \subsection{Thread-Caching Malloc (TCmalloc)}
 Thread-Caching malloc was written by Sanjay Ghemawat and Paul Menage from
 Google, Inc. This memory allocator is designed to be faster for the allocation
@@ -1097,7 +1180,7 @@ in some scenarios, where ptmalloc2 memory arena system causes unnecessary large
 memory consumption. TCmalloc claims to be cca 6-times faster than ptmalloc2 for
 the allocation and deallocation of small objects, and it also claims to solve
 the described memory blowup problems by introducing a thread cache
-system~\cite{tcmalloc}. This system allows to move memory between the
+system~\cite{allocators:tcmalloc}. This system allows to move memory between the
 thread-local caches and the central storage area. Moving memory means changing ownership of the memory in
 this context: the same memory area can be a part of a cache of certain thread, and
 when it is not needed anymore (e.g. when the host application releases the
@@ -1112,7 +1195,7 @@ chunks have to be allocated for the threads. This means the allocator will
 request 600MB of memory from the operating system, even when the program never
 needs more then 300MB at one time. However, if the same memory can be used as a
 thread-local cache for more threads, the 300MB chunk can be provided to first
-thread, and then the same chunk is provided to the second thread. Total memory
+ thread, and then the same chunk is provided to the second thread. Total memory
 consumption is 300MB.
 
 The basic principles of TCmalloc: the allocator holds the central storage area,
@@ -1125,7 +1208,8 @@ cache size exceeds a treshold (which is dynamic---the threshold is lower when
 the thread count is higher), some amount of free space in the cache is
 transfered to the central storage. This prevents the large waste of space in
 applications using large number of threads, where a lot of space would be taken
-by free chunks in thread-local cache~\cite{tcmalloc}.
+by free chunks in thread-local cache~\cite{allocators:tcmalloc}.
+
 \subsection{Two Level Segregate-Fit (TLSF)}
 TLSF is a dynamic memory allocator designed for the purpose of use in
 real-time, embeeded and other resource constrained systems. It was developed by
@@ -1134,15 +1218,24 @@ criteria of TLSF are defined by the real-time system domain: bounded response
 time, speed and efficient memory use (low fragmentation). TLSF claims to have a
 constant request cost O(1), with very low latency (claiming the number of 168
 CPU instructions per request). For fragmentation, TLSF claims to have an average
-fragmentation cca 15\%, and a measurement worst case was 25\%.
+fragmentation cca 15\%, and a measurement worst case was 25\%~\cite{allocators:tlsf, allocators:tlsf2}
+
 \subsection{Jason Evans' malloc implementation (jemalloc)}
+This allocator was initially created for the FreeBSD operating system, when the allocator present in FreeBSD C library (called pkhmalloc) was found to be a bottleneck for multi-threaded programs on multi-processor systems~\cite{allocators:jemalloc}. Jemalloc replaced pkhmalloc in FreeBSD, and also was later adapted by NetBSD as default system allocator. Jemalloc is also used as a custom allocator in Firefox, where it was used to solve problems with memory fragmentation, especially on Microsoft Windows related platform~\cite{allocators:jemalloc:web}.
+
+Jemalloc is designed for good performance in multi-threaded environment, and uses separate arenas for allocation for that purpose. The number of arenas is determined by the number of processors on the system. For single processor systems only one arena is created. On multi-processor systems, it is four time as many arenas as the proccessors. These variables are just the default, and are configurable. If there are more threads in an application than there are arenas, some arenas are shared by multiple threads. Memory is managed in multiples of the chunk size, which in default is 2MB. These chunks are aligned on a chunk size multiple address. The allocation requests are divided in three categories defined by their size, with different strategies taken for each category. Huge allocation requests are stored in dedicated chunks. For small and large categories, the allocations are made by splitting and coalescing the free space in chunks. The small allocations are divided into three more subcategories, which are again treated differently~\cite{allocators:jemalloc}.
+
+\subsection{nedmalloc}
+
+Nedmalloc is based on dlmalloc, the same allocator as ptmalloc is based on. No good source describing the improvements was found aside from the sparse information on the project homepage~\cite{allocators:nedmalloc}, which focus mainly on the effects of the improvements, and claims to be generally significantly faster then ptmalloc, TCmalloc and Hoard. This allocatoris supposed to be portable, and usable in Windows operating system without modification.
+
 \subsection{The Hoard memory allocator}
 The author of Hoard memory allocator is Emery Berger from the University of
 Massachusetts Amherst, and the first version was written in year 2000. The initial goal of the
 Hoard allocator was to solve problems introduced by poor allocator performance
 in multithreaded programs, especially avoiding false sharing and memory blowup.
 Scalability, speed and low fragmentation were the additional
-criteria~\cite{hoard}.
+criteria~\cite{allocators:hoard}.
 
 The main principle of Hoard is similar to that of TCmalloc. The allocator
 creates a separate heap for all threads, and a main global heap. This provides
@@ -1150,76 +1243,343 @@ the elimination of a performance hit caused by lock contention: different thread
 requests are satisfied from different heaps. Ownership of memory can be changed
 from global heap to separate thread heap when more memory is needed, or vice
 versa when a thread heap contains a lot of free space. Hoard tries to optimize
-the memory layout for caches by providing memory from a single cache line to a 
+the memory layout for caches by providing memory from a single cache line to a
 single thread only. Hoard requests large areas of memory from the operating
 system. These areas are divided to {\em superblocks}. The size of a superblock
 is always a multiple of a page size. A superblock cannot be divided between more
 heaps, one heap always exclusively owns a superblock. Requests are satisfied by
 dividing and coalescing memory in one superblock. Huge memory requests (larger
 than a half of a superblock) are treated differently: separate memory areas are
-requested for them using {\tt mmap} system call or its variant~\cite{hoard}.
+requested for them using {\tt mmap} system call or its variant~\cite{allocators:hoard}.
 
-% \section{Implementation decisions} The implementation itself is beyond the
-% scope of this term project, and will be done in future work on the diploma
-% thesis. However, several design related decision about implemetation were done
-% already.
+\section{Testing environment and tested allocator versions}
 
-% The implementation language will be C for the parts directly involved in the
-% scenario execution and Python for the scenario file translator and data
-% analysis tools. Some tools will be implemented as Systemtap dynamic tracing
-% probe scripts. The memory allocators will be linked to the scenario binary
-% either directly during the scenario compilation, or using LD\_PRELOAD for some
-% specific cases when several allocator will be tested, avoiding the need for
-% re-linking the scenario binary for each allocator.
+All tests were performed on a single computer, detailed information about the configuration is in table \ref{systemspec}. The tests were performed at runlevel 5, but the computer was not executing anything computationally intensive except for the benchmarks. The exact versions and configuration of the tested allocators is in table \ref{allocversions}.
 
-% \chapter{Conclusion}
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Operating system & Fedora release 12 (Constantine)\\ \hline
+Kernel version & 2.6.32.11-99.fc12.x86\_64 (from Fedora package)\\ \hline
+glibc version & glibc-2.11.1-6.x86\_64\\ \hline
+gcc version & gcc-4.4.3-4.fc12.x86\_64\\ \hline
+CPU & Intel(R) Core(TM)2 Duo CPU T7300  @ 2.00GHz\\ \hline
+Memory & 2GB\\ \hline
+\end{tabular}
+\caption{Testing system specification}
+\label{systemspec}
+\end{center}
+\end{table}
 
-% This term project had three main goals. This chapter describes the achieved
-% work on these goals, and makes conclusions based on these goals.
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+Allocator & Version & Configuration (compilation) \\ \hline \hline
+ptmalloc & 2.11.1-6 &\\ \hline
+Hoard & 38 &\\ \hline
+jemalloc & linux\_20080828a &\\ \hline
+TCmalloc & 1.5 & \\\hline
+nedmalloc & 1.05 (svn 1078) & \\\hline
+TLSF & 2.4.6 & \\\hline
+\end{tabular}
+\caption{Tested allocator versions}
+\label{allocversions}
+\end{center}
+\end{table}
 
-% \section{Achieved work}
+\section{Analysis tests}
 
-% The inital goal of the term project was to describe the dynamic allocation
-% problematics, and identify the features and characteristics important to the
-% topic of the thesis. These were described in chapter \ref{dsa}. Several
-% performance metrics were identified and described. The identified performance
-% metrics were memory overhead, memory fragmentation, allocation speed and memory
-% locality and layout metrics. For these metrics, a benchmarking methodology was
-% created. The second part of the initial goal was to find the factors affecting
-% these performance metrics. These factors were described in \ref{variables}. The
-% factors are these: system call cost, allocation request size, the order in
-% which the requests are coming, and the number of threads in the application
-% using the allocator.
+This section descibes the tests. All allocators were attempted to be tested in all cases, but some of the allocators showed problems under certain use cases.
+The allocator which could not be tested at all was nedmalloc, because it simply crashed anytime used. In an attempt to isolate this crash and find out the possible reason (wrong compilation or usage, etc.) it was determined that this allocator crashed even outside of the tool, with no non-standard mechanisms in place, and with simple program doing just an allocation. So, it can be safely said that these crashes are not caused by the tool, but a bug in this allocator.
 
-% Using the identified factors and performance metrics, the high-level design of
-% the benchmarking tool was designed. The design was driven by the two main
-% goals: it has to provide the ability to influence all of the performance
-% factors in the benchmarking environment, and it has to be able to measure all
-% the performance metrics as presisely as possible, using statistical means where
-% necessary. The design also identified the precise output values for each
-% metric.
+Another crashing allocator is TLSF, which occasionally crashed when the user program was heavily threaded (more than 8 threads). For this reason, TLSF was omited from multi-threaded testing scenarios.
 
-% The whole tool was designed to be a interpreter of a domain specific language,
-% encoding the usage scenario of the allocator: both the environmental
-% characteristics (system call costs) and the program characteristics (threading,
-% allocation size and order). The interpreter will create a C program. The
-% execution of this program will then be analysed by the various metric specific
-% tools, both during the execution (data collection) and after it (data analysis
-% and interpretation).
+\subsection{System call usage analysis}
 
-%\section{Future work}
+The purpose of this test is to analyse how the different allocators use system calls to obtain or return memory to the operating system under different use cases. The reason for this test is to determine how many system calls are issued by different allocators, and if the allocator actually uses some memory returning system calls. The information about the memory system call usage is not useful on its own (the numbers do not show any exact quality), but the knowledge can be useful in conjunction with other data, for example on systems where mmap cal is expensive (or not present at all) an allocator that relies just on mmap system call is not the best choice.
 
-% Using the factors and metrics collected in this term project, as well as the
-% initial high-level design decision, the benchmarking tool suite will be
-% implemented. Aside from the implementation itself, the tool will use several
-% external tools to do some specific tasks. It will use GCC to compile the
-% programs. Systemtap will be used for the userspace-kernelspace communication
-% interception, and if possible also to catch the malloc/free calls in the
-% userspace. If this is not possible, ltrace will be used.
+For the purpose of this test, two short traces of a real programs were obtained. First trace comes from inactive bash (the shell), the second trace comes from GCC. Both traces are single threaded. Probe syscall-dwarf was used for this testing. Counts of all system calls were observed. To observe the behavior of the program if the exact same allocations were done in a multithreaded environment, the gcc scenario was modified by adding one more thread, which was not doing any allocations. The usage pattern is identical (or nearly: theoretically, the threading library could possibly do some memory allocation in its code), the program is just multi-threaded. It interesting to see if this makes the allocator change its strategy somehow.
 
-% When the implementation is ready and working, the tool will be tested on
-% several allocators. The main popular ones will be tested, and some interesting
-% experimental one too. These candidates for the testing will have to be found.
-% \chapter{Different malloc implementations analysis} \chapter{Conclusion} I will
-% be Ing. \cite{Pravidla}
-% =========================================================================
+It should be noted that the numbers are not totally precise. Some mmap() and brk() calls can originate from different code (glibc initilization, pthread library and internals). By experimenting, the counts of these calls were determined as 6 mmap(), 1 munmap(), 1 brk() calls for the single-threaded case, and 8 mmap(), 1 munmap(), 1 brk() call for the one with two threads. The final values were obtained by substracting these ``default'' values from the ones actually measured
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+Allocator & Allocations & Deallocations & mmap() & munmap() & brk() \\ \hline \hline
+ptmalloc (single)  & 5333   & 4512 & 0   & 0   & 4 \\ \hline
+ptmalloc (multi)   & 10666  & 4026 & 2   & 3   & 2 \\ \hline
+tcmalloc (single)  & 5332   & 4512 & 3   & 0   & 12 \\ \hline
+tcmalloc (multi)   & 10664  & 9026 & 3   & 0   & 14 \\ \hline
+hoard (single)     & 5332   & 4512 & 74  & 53  & 0 \\ \hline
+hoard (multi)      & 10667  & 9028 & 149 & 116 & 0 \\ \hline
+jemalloc (single)  & 5332   & 4512 & 4   & 4   & 0 \\ \hline
+jemalloc (multi)   & 10664  & 9026 & 8   & 8   & 0 \\ \hline
+TLSF (single)      & 5332   & 4512 & 0   & 0   & 31 \\ \hline
+TLSF (multi)       & 10664  & 9024 & 0   & 0   & 57 \\ \hline
+\end{tabular}
+\end{center}
+\caption{System call counts (gcc)}
+\label{sc1}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+Allocator & Allocations & Deallocations & mmap() & munmap() & brk() \\ \hline \hline
+ptmalloc  & 28719 & 20979 & 0   & 0   & 4  \\ \hline
+tcmalloc  & 28718 & 20979 & 3   & 0   & 10 \\ \hline
+hoard     & 28718 & 20979 & 53  & 40  & 0 \\ \hline
+jemalloc  & 28718 & 20979 & 4   & 4   & 0  \\ \hline
+TLSF      & 28718 & 20979 & 0   & 0   & 36 \\ \hline
+\end{tabular}
+\end{center}
+\caption{System call counts (bash)}
+\label{sc2}
+\end{figure}
+
+The results are in tables \ref{sc1} and \ref{sc2}. The table clearly shows that the allocators are really using quite different strategies. TLSF is using exclusively the heap on the program break, while Hoard and jemalloc are always operating on the memory mapped space. TCmalloc is using a combination of both, but the strategy is the same, regardless on the number of threads. Interesing is the behavior of ptmalloc, which is using the program break space for single-threaded program and a combination of both approaches for multi-threaded testcase.
+
+\subsection{Overall program performance}
+
+Total program performance test attempts to measure the effect of the allocator characteristics on the overall program performace. The scenario used for this test employs just few allocations, on which various types of work is done. This attempts to invoke the situation, where the memory layout created by the allocator is more or less friendly to the cache structure of the CPU. The used scenario was employing two threads, and the threads are doing different workjobs. Result were obtained by the totaltime probe. The negative effect of poor memory placement is most likely exhibited by the increased system time. Additionally, the real program traces from the previous test were used. These do not use the allocated memory, but have interesting memory allocation pattern properties, and it is interesting to see the program performance with this allocation pattern.
+
+The results of the measurement are in tables \ref{overall}, \ref{overall-gcc} and \ref{overall-bash}. Additionally, the values are displayed in graph in figure \ref{overall-graph} for better visual comparison. The results are identical for all three testcases: TCmalloc has the best performance, while Hoard does not seem to handle these allocations patterns very well.
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Allocator & User time & U stddev & System time & S stddev & Real time & R stddev \\
+\hline \hline
+ptmalloc & 13.436 & 0.017852 & 0.02 & 0.0 & 8.558 & 0.102218 \\ \hline
+tcmalloc & 13.199 & 0.027701 & 0.0205 & 0.002236 & 8.3615 & 0.139559 \\ \hline
+hoard & 14.1335 & 0.188185 & 1.5445 & 0.167284 & 10.7185 & 0.175687 \\ \hline
+jemalloc & 13.6585 & 0.035582 & 0.02 & 0.0 & 8.525 & 0.094396 \\ \hline
+\end{tabular}
+\caption{Runtime, overall program performace test: crafted scenarios}
+\label{overall}
+\end{center}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Allocator & User time & U stddev & System time & S stddev & Real time & R stddev \\
+\hline \hline
+ptmalloc & 0.435500 & 0.009445 & 0.134000 & 0.008826 & 0.577500 & 0.004443 \\ \hline
+tcmalloc & 0.219000 & 0.007881 & 0.109000 & 0.007182 & 0.336000 & 0.005982 \\ \hline
+hoard    & 1.520000 & 0.036346 & 0.116500 & 0.011367 & 1.658000 & 0.034274 \\ \hline
+jemalloc & 0.907500 & 0.015174 & 0.059000 & 0.001987 & 0.981500 & 0.130890 \\ \hline
+TLSF     & 0.864000 & 0.017764 & 0.138000 & 0.016193 & 1.009000 & 0.011972 \\ \hline
+\end{tabular}
+\caption{Runtime, overall program performace test: gcc trace}
+\label{overall-gcc}
+\end{center}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Allocator & User time & U stddev & System time & S stddev & Real time & R stddev \\
+\hline \hline
+ptmalloc & 1.647500  & 0.016504 & 0.334000 & 0.014290 & 1.997000 & 0.009234 \\ \hline
+tcmalloc & 1.118500  & 0.040429 & 0.218000 & 0.011050 & 1.359000 & 0.047117 \\ \hline
+hoard    & 17.28400  & 0.372847 & 0.596000 & 0.156016 & 17.95650 & 0.416821 \\ \hline
+jemalloc & 4.052000  & 0.026477 & 0.184500 & 0.013563 & 4.275500 & 0.034561 \\ \hline
+TLSF     & 4.541000  & 0.092670 & 0.402000 & 0.013984 & 4.952000 & 0.095545 \\ \hline
+\end{tabular}
+\caption{Runtime, overall program performace test: bash trace}
+\label{overall-bash}
+\end{center}
+\end{figure}
+
+%\begin{figure}[h]
+%\begin{center}
+%\includegraphics[width=0.8\linewidth,keepaspectratio]{fig/overall}
+%\caption{Runtime, overall program performance test}
+%\label{overall-graph}
+%\end{center}
+%\end{figure}
+
+\subsection{Locality analysis}
+
+The purpose of this test is to give information about the locality characteristics of the allocator, meaning the distance between two subsequent memory allocations. The locality probe was used for this test. This probe gives directly the the values needed. The result is the most frequent distance encountered during the execution. The percentage of distances falling into certain size classes was also determined. The statistical values are not of great use, because the probe does not filter requests which were done across different memory pools (e.g. an allocation placed in space obtained by brk() and allocation placed in memory mapped space), resulting in several extreme distances in the set, skewing the results. This is a possible improvement of the memory model for locality analysis: it could track the subsequent allocations placed into the same memory area.
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+Allocator & Mode & $ <64B $ & $ <128B $ & $ <1kB $ & $ <4kB $ \\ \hline \hline
+ptmalloc & 16 bytes & 70.5\% & 71.5\% & 75.4\% & 77.5\% \\ \hline
+tcmalloc & 48 bytes & 44.5\% & 46.7\% & 49.9\% & 54.9\% \\ \hline
+hoard & 0 bytes & 49.6\% & 50.4\% & 55.6\% & 56.4\% \\ \hline
+jemalloc & 0 bytes & 44.7\% & 45.4\% & 48.2\% & 49.4\% \\ \hline
+TLSF & 16 bytes & 72.7\% & 74.0\% & 75.6\% & 77.1\% \\ \hline
+\end{tabular}
+\caption{Locality metrics: gcc}
+\label{loc:gcc}
+\end{center}
+\end{figure}
+
+The results are quite interesting. There are two allocators which usually place the allocations without {\em any} gap between them: Hoard and jemalloc. The mode of the gap size for both TLSF and ptmalloc is 16 bytes, and for TCmalloc it is 48bytes, which is quite large gap. However, the ability to put allocations generally ``closer'' to each other does not necessarily mean that the allocations need to be put right after each other. TLSF and ptmalloc have generally better locality, because both manage to put cca 70\% of allocation requests not more then 64b bytes far, while the rest of the allocator can put no more then 50\% allocations this close. It should be noted that the percentage of gaps smaller than one page (4kB) is not much larger then the percentage of gaps maller then 64 bytes. This holds for all allocators.
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+Allocator & Mode & $ <64B $ & $ <128B $ & $ <1kB $ & $ <4kB $ \\ \hline \hline
+ptmalloc & 16 bytes & 38.3\% & 41.4\% & 54.6\% & 69.2\% \\ \hline
+tcmalloc & 48 bytes & 17.3\% & 18.2\% & 21.1\% & 26.2\% \\ \hline
+hoard & 0 bytes & 30.8\% & 33.3\% & 40.1\% & 44.5\% \\ \hline
+jemalloc & 0 bytes & 26.0\% & 27.6\% & 29.5\% & 36.4\% \\ \hline
+TLSF & 16 bytes & 54.0\% & 55.7\% & 65.8\% & 76.3\% \\ \hline
+\end{tabular}
+\caption{Locality metrics: bash}
+\label{loc:bash}
+\end{center}
+\end{figure}
+
+For bash testcase, the numbers are slightly different and the difference between one page and 64 byte gap counts is more pronounced. Interesting fact is the dropped locality of ptmalloc compared to that of TLSF. Generally, it is surprising that Hoard has such low locality characteristics: it was designed with program locality as one of the main critera. In these two tests, it performs better then jemalloc and TCmalloc, but significantly worse then ptmalloc and TLSF.
+
+\subsection{Wasted memory analysis}
+
+This test analyses the memory efficiency of the allocators, using the used-memory probe. The scenarios used in this test are the same as the ones used in system call usage analysis test. This test measures the percentage of the busy memory from the whole amount of memory obtained from the operating system. Both testcases have some relevance even in the real usage. In modern desktops it is not unusual to have several graphical terminals running simmultaneously, resulting in multiple bash processes running, each having similar amount of memory obtained by the allocator. In the case of GCC the use case could be a compile server, running jobs simmultaneously. With COW allocation method in modern Linux kernel the amount of unused memory obtained by the allocator is not as big problem as it would be without it, but it is still better to have more efficient allocator.
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Allocator & Used memory mean & Used memory median & Best used memory \\ \hline \hline
+ptmalloc  & 49.1\% & 43.5\% & 94.6\% \\ \hline
+TCmalloc  & 01.8\% & 01.4\% & 04.9\% \\ \hline
+hoard     & 05.5\% & 04.5\% & 13.8\% \\ \hline
+jemalloc  & 14.0\% & 11.4\% & 38.7\% \\ \hline
+TLSF      & 54.8\% & 46.1\% & 92.1\% \\  \hline
+\end{tabular}
+\caption{Used memory percentage (gcc)}
+\label{used:gcc:table}
+\end{center}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\linewidth,keepaspectratio]{fig/gcc-used}
+\caption{Used memory percentage graph (GCC)}
+\label{used:gcc:graph}
+\end{center}
+\end{figure}
+
+For GCC testcase, the most efficient allocator is TLSF, which is not surprising because it was designed for the embeeded systems. Very spatial efficient is ptmalloc. The efficiency of the other three allocators was significantly lower, worst being TCmalloc. Interesting metric is the best used memory percentage: it is generally better metric then the mean or the median, because it gives an information about how the allocator handles the allocated memory variation.
+
+\begin{figure}[h]
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+Allocator & Used memory mean & Used memory median & Best used memory \\ \hline \hline
+ptmalloc  & 52.5\% & 50.4\% & 78.8\% \\ \hline
+TCmalloc  & 02.2\% & 02.3\% & 03.4\% \\ \hline
+hoard     & 06.1\% & 06.3\% & 09.6\% \\ \hline
+jemalloc  & 10.8\% & 10.8\% & 17.0\% \\ \hline
+TLSF      & 62.8\% & 63.2\% & 72.8\% \\ \hline
+\end{tabular}
+\caption{Used memory percentage (bash)}
+\label{used:bash:table}
+\end{center}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\linewidth,keepaspectratio]{fig/bash-used}
+\caption{Used memory percentage graph (bash)}
+\label{used:gcc:graph}
+\end{center}
+\end{figure}
+
+The bash testcase confirmed the results of GCC, showing almost the identical characteristics. This testcase does more allocations then GCC, and the result of this seems to be generally slightly higher mean and median values, with the associated decreased best values for all allocators.
+
+\subsection{Scalability}
+
+This test attempted to discover the direct scalability of the allocators under an artifical load of subsequent malloc/free pairs of identical size (the size was a parameter of the test(. The discovered metric was a number of operations the allocator does per second, with different number of threads. For scalable allocator, the operation count per second should not drop with rising number of threads, but it should rise linearly for as long as the number of CPUs processing the testcase is larger or equal to the number of threads. When there are more threads then CPUs, the throughput still should not drop, but it should stay at the value it had with $M$ threads on $M$ CPUs.
+
+To obtain this data, the totaltime probe was used. For a scenario with known number of operations it is possible to divide this number by the real time mean value, obtaining a number of operations for seconds, measured in millions for more understandable results. Each thread of the scenario did a fixed number of requests (both allocations and deallocations). The measurement was done for thread counts of power-of-two up to 64 threads, and this was done for four allocation sizes: 8B, 128B, 4kB and 100MB, to test different allocation algorithms most allocators employs for the allocations of different size classes. The results are showed in figure \ref{scalability}.
+
+The results clearly show that TCmalloc is right to claim to be both fast and scalable: for lowe three allocation size requests, it clearly outperformed every other allocator. It is also the only allocator that exploited the dual core processor of the testing system, and its throughput rose between one and two threads, while all other allocator performance dropped. The test showd that all tested allocators are scalable, with the exception of TLSF. TLSF showed quite bad throughput in initial testing, but the tests were later abandoned, because the testcases were running for too much long when run with larger allocations in multiple threads. This allocator alsho exhibited random crashes.
+
+Different results come in the scenario which does huge allocations. The performance is much worse in this case, so the measurements had to be taken in tens of thousands request instead of the original millions. Some allocators serve just like a wrappers over an expensive mmap call in this case, making their scalability worse. The best allocator for this purpose is Hoard. The throughput of Hoard drops slowly with the increasing number of threads, but not as massively as the other allocators. Intereshing phenomenon is exhibited by jemalloc allocator, whose throughput actually rises with more threads, with the final result for 64 threads being the best from allocators.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{cc}
+\includegraphics[width=0.5\linewidth,keepaspectratio]{fig/scalability_chart1} &
+\includegraphics[width=0.5\linewidth,keepaspectratio]{fig/scalability_chart4} \\
+\includegraphics[width=0.5\linewidth,keepaspectratio]{fig/scalability_chart3} &
+\includegraphics[width=0.5\linewidth,keepaspectratio]{fig/scalability_chart2}
+\end{tabular}
+\caption{Scalability results: 8b, 128b 4kB, 100MB allocations}
+\label{scalability}
+\end{center}
+\end{figure}
+
+\section{Test results discussion}
+
+This section discusses the technical results of the testing of the benchmarking tool, not the results of the allocator testing. The tool generally serves its purpose well. The results are clear and give quite good understanding about the allocator performance characteristics, especially in comparison.
+
+\subsection{Issues found during testing}
+\label{issues}
+
+Most of the issues found during the testing were fixed before finish. The remaining ones are determined by the design choices in the start of the project. One issue is the failure of Systemtap to precisely trace the memory related event during very high load, especially in heavily multi-threaded environment. Such conditions cause Systemtap buffers to overflow, resulting in dropping certain event logs. Incomplete logs cause the memory model to be incorrect in this case. The problem is especially painful because this happens silently, with no warning. This could be solved by using a different tracing method, which would trace the program reliably, even at the cost of lower performance of the benchmark. Different tracing methods could be used if the probes are implemented as configurable.
+
+Second issue is the bad performance of memory modelling probes when the tested scenario contains a large number of allocation requests. The memory model class in Python exhibits quite poor performace in this case, which could be improved by revising the algorithms.
+
+Last issue encountered is the communication between different parts of the probe via temporary files. These files can grow very large (several GB) for the scenarios with a lot of requests. This may cause unexpected problems when the disk space is constrained. It probably causes performance problems, too.
+
+\chapter{Conclusion}
+
+The conclusion chapter briefly evaluates the implemented tool in the first section. Second section discusses the experimentally obtained data about tested dynamic memory allocators, usefulness of these data, and therefore, by extension, also of the tool. Several possible future improvements are discussed in the last section.
+
+\section{Evaluation}
+
+A tool for determining several performance metrics of the memory allocators was designed, implemented and tested. The focus of the tool was to isolate the effects caused by the allocator from the ones caused by other parts of the operating system as much as possible. This was achieved by carefully observing the inputs and outputs, and computing the internals from the observarions. The probing system is also partially modular. With the focus on sharing code in Python modules whenever possible, this means another probes focused on different metrics could be added without greater effort.
+
+\subsection{Usability}
+
+The tool implements few basic probes for determining several memory allocator perforrmance metrics The tool was tested on several open source memory allocators, and managed to provide the intended performance information about them. The tool allows to create memory allocation scenarios covering the usual use cases, with an omission of some inter-thread memory manipulation. The toolset also provides a mean how to capture a memory allocation scheme of an existing running program, and to create a input file for the benchmarking probes from such trace.
+
+The set of prerequisites for a successful benchmarking is quite large: internals knowledge, debugging information, as well as large number of third party library dependencies.
+
+\subsection{Design issues}
+The design of the whole tool was underestimated. The tool was consisting of many smaller parts, which needed to be integrated to work together. Because of object oriented Python being the language of choice, the class level design should have been much more thorough, with clear and precise specification of each unit, as well as the exact definition of class responsibilities, inputs and outputs. This did not happen, causing integration issues. Second issue with design was the usage of third party tools. Retrospectively, every external tool should have been encapsulated in a Python class, hiding the specifics of the tool. These tools were used directly, breaking the object orientation, and introducing a data flow elements into the architectures. Several components of the system were also needlessly overengineered at the beginning, which then caused problems with maintenance and shifted focus from the main purpose of the tool. These issues were a valuable experience, and in combination with the theoretical basis of this work, there are many improvements possible.
+
+\section{Future work proposition}
+
+The focus of the possible future improvements should be the removal of the prerequisites needed for benchmarking: the need for debugging information and internals knowledge. This could involve designing a different tracing methods, which could be used to obtain various information for analysis, especially about the internal memory layout of the allocator.
+
+The second area of possible improvement is the removal of the issues described in section \ref{issues}, which would result in better performace.
+
+The last option of the future work could be the careful examination of the design issues of the tool. Combined with the theoretical basis of this work and practical testing, the new and improved design and implementation of several parts (especially the scenario infrastructure) could be created.
+
+\appendix
+\chapter{Usage instructions}
+
+\section{Required setup and dependences}
+
+\section{Running probes}
+
+\section{Comparing output}
+
+\chapter{Allocator internals}
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Allocator & malloc & malloc parameter & free & free parameter \\ \hline \hline
+ptmalloc  & malloc & bytes & free & mem \\ \hline
+ TCmalloc  & malloc & size  & free & ptr \\ \hline
+Hoard     & hoardmalloc & sz & hoardfree & ptr \\ \hline
+jemalloc  & malloc & size & free & ptr \\ \hline
+TLSF      & tlsf\_malloc & size & tlsf\_free & ptr \\ \hline
+\end{tabular}
