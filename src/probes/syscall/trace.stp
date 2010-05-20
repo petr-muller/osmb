@@ -1,7 +1,0 @@
-probe process(@1).function("probe_malloc"){
-	printf("DO_STUFF\n");
-}
-
-probe process(@1).function("probe_free"){
-	printf("DO STUFF TOO\n");
-}
