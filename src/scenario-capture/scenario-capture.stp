@@ -1,7 +1,20 @@
-probe process("/lib64/libc-2.11.1.so").function("malloc").return{
-  printf("MALLOC TID=%i PID=%i SIZE=%i RETURN=%i\n", tid(), pid(), $bytes, $return);
+#!/usr/bin/stap
+
+global tidMalloc;
+
+probe process(@1).function(@2){
+  tidMalloc[tid()] = $4;
 }
 
-probe process("/lib64/libc-2.11.1.so").function("free"){
-  printf("FREE TID=%i PID=%i POINTER=%i\n", tid(), pid(), $mem);
+probe process(@1).function(@2).return{
+  if ([tid()] in tidMalloc){
+    if (tidMalloc[tid()] != -1){
+      printf("MALLOC TID=%i PID=%i SIZE=%i RETURN=0x%x\n", tid(), pid(), tidMalloc[tid()] , $return);
+      tidMalloc[tid()] = -1;
+    }
+  }
+}
+
+probe process(@1).function(@3){
+  printf("FREE TID=%i PID=%i POINTER=0x%x\n", tid(), pid(), $5);
 }

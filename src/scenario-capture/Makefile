@@ -1,7 +1,7 @@
 .PHONY: all clean
 
 libfakemalloc.so: malloc-wrapper.c
-	gcc -shared -fPIC malloc-wrapper.c -o libfakemalloc.so -ldl -lc
+	gcc -shared -fPIC malloc-wrapper.c -o libfakemalloc.so -ldl -lpthread -Wall -pedantic -std=c99
 
 all: libfakemalloc.so
 
