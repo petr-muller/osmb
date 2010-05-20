@@ -17,7 +17,7 @@ def simplify(somelist):
 
   retlist.append(olditem)
 
-  return retlist
+  return retlist[1:]
 
 input = sys.argv[1]
 output = sys.argv[2]
