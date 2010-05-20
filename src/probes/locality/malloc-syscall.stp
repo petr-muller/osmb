@@ -1,0 +1,61 @@
+#!/usr/bin/stap
+
+global inMmap;
+global inMalloc;
+global inFree;
+
+probe process(@1).function(@7){
+  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $MARG);
+  inMalloc[tid()] = 1;
+}
+
+probe process(@1).function(@7).return{
+  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:end RET:%i\n",gettimeofday_ns(), tid(), $MARG, $return);
+  inMalloc[tid()] = 0;
+}
+
+probe process(@1).function(@8){
+  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $FARG);
+  inFree[tid()] = 1;
+}
+
+probe process(@1).function(@8).return{
+  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:end RET:\n",gettimeofday_ns(), tid(), $FARG);
+  inFree[tid()] = 0;
+}
+
+probe process(@2).syscall{
+  if ($syscall == $3){ //brk
+    printf("TS:%i TID:%i NAME:brk ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $arg1);
+  }
+  if ($syscall == $4){ //mmap
+    inMmap[tid()] = 0;
+    if ($arg4 & $6 && (inMalloc[tid()] == 1 || inFree[tid()] == 1)){
+      printf("TS:%i TID:%i NAME:mmap ARG:%i TYPE:start RET:%i\n", gettimeofday_ns(), tid(), $arg2, $arg5);
+      inMmap[tid()] = 1;
+    }
+  }
+  if ($syscall == $5){ //munmap
+    if (inMalloc[tid()] == 1 || inFree[tid()] == 1){
+      printf("TS:%i TID:%i NAME:munmap ARG:%i,%i TYPE:start RET:\n", gettimeofday_ns(), tid(), $arg1, $arg2);
+    }
+  }
+}
+
+
+probe process(@2).syscall.return{
+  if ($syscall == $3){
+    printf("TS:%i TID:%i NAME:brk ARG: TYPE:end RET:%i\n",gettimeofday_ns(), tid(), $return);
+  }
+  if ($syscall == $4){ //mmap
+    if (inMmap[tid()] == 1 && (inMalloc[tid()] == 1 || inFree[tid()] == 1)){
+      printf("TS:%i TID:%i NAME:mmap ARG: TYPE:end RET:%i\n", gettimeofday_ns(), tid(), $return);
+      inMmap[tid()] = 0;
+    }
+  }
+  if ($syscall == $5){ //munmap
+    if (inMalloc[tid()] == 1 || inFree[tid()] == 1){
+      printf("TS:%i TID:%i NAME:munmap ARG: TYPE:end RET:%i\n", gettimeofday_ns(), tid(), $return);
+    }
+  }
+}
