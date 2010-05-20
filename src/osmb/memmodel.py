@@ -8,11 +8,17 @@ class Malloc:
     self.stamp = stamp
     self.address = None
 
-  def setAdress(self, address):
-    self.address = address
+  def setAddress(self, address):
+    self.address = int(address)
+
+  def getAddress(self):
+    return self.address
 
   def getSize(self):
     return self.size
+
+  def getTid(self):
+    return self.tid
 
 class Heap:
   def __init__(self):
@@ -96,6 +102,12 @@ class Memory:
                       'munmap': self.munmap,
                       'brk' : self.brk }
 
+  def addAllocation(self, allocation):
+    self.allocations[allocation.getAddress()] = allocation
+
+  def removeAllocation(self, address):
+    del self.allocations[address]
+
   def getHeapSize(self):
     return self.heap.getSize()
 
@@ -116,15 +128,17 @@ class Memory:
     elif command.getType() == "end" and tid in self.unfinishedAllocations:
       address = command.getRet()
       if address != "0":
-        self.allocations[address] = self.unfinishedAllocations[tid]
+        allocation = self.unfinishedAllocations[tid]
+        allocation.setAddress(address)
+        self.addAllocation(allocation)
 
       del self.unfinishedAllocations[tid]
 
   def deallocate(self, command):
-    address = command.getArg()
+    address = int(command.getArg())
     if command.getType() == "end":
       if address in self.allocations:
-        del self.allocations[address]
+        self.removeAllocation(address)
 
   def mmap(self, command):
     type = command.getType()
@@ -155,10 +169,14 @@ class Memory:
     length = int(length)
 
     startaddress = None
-    for address in self.mmaps:
-      if self.mmaps[address].addrIn(start):
-        startaddress = address
-        break
+
+    if start in self.mmaps:
+      startaddress = start
+    else:
+      for address in self.mmaps:
+        if self.mmaps[address].addrIn(start):
+          startaddress = address
+          break
 
     if startaddress:
       map = self.mmaps[startaddress]

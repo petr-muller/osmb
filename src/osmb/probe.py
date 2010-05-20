@@ -16,7 +16,7 @@ class Probe:
   def __init__(self):
     self.options = []
     self.allocator = None
-    
+
     self.scenario = None
     self.scenarioTrans = "bin/scen2C.py"
     self.env = os.environ
@@ -27,20 +27,26 @@ class Probe:
     self.privs = "normal"
     self.needed = []
     self.command = "true"
-    
+    self.compcommand = "true"
+
     self.validators = {"ssize" : self.validateSampleSize,
                        "scenario": self.validateScenario,
                        "allocator" : self.validateAllocator,
                        "free" : self.validateFree,
                        "malloc" : self.validateMalloc,
-                       "bsize" : self.validateBatchSize }
-    
+                       "bsize" : self.validateBatchSize,
+                       "marg"  : self.validateMArg,
+                       "farg"  : self.validateFArg}
+
     self.req2cli = {"ssize" : '-s',
                     "bsize" : '-b',
                     "allocator" : '-a',
                     "scenario" : '-f',
                     "malloc" : '-m',
-                    "free" : '-d'}
+                    "free" : '-d',
+                    "marg" : '-l',
+                    "farg" : '-e'}
+
   def req2val(self, req):
     if req == "ssize":
       return str(self.samplesize)
@@ -54,29 +60,39 @@ class Probe:
       return str(self.allocator)
     elif req == "scenario":
       return str(self.scenarioAsC)
-    
+    elif req == "marg":
+      return str(self.marg)
+    elif req == "farg":
+      return str(self.farg)
+
     return None
 
   def setScenTrans(self, path):
     self.scenarioTrans = path
-  
+
   def setPythonPath(self, pp):
     self.env["PYTHONPATH"] = pp
 
   def setSSize(self, size):
     self.samplesize = size
-    
+
   def setBSize(self, size):
-    self.batchsize = size 
+    self.batchsize = size
   def setScenario(self, scenario):
     self.scenario = scenario
-    
+
   def setMalloc(self, malloc):
     self.nmalloc = malloc
-    
+
   def setFree(self, free):
     self.nfree = free
-    
+
+  def setMArg(self, arg):
+    self.marg = arg
+
+  def setFArg(self, arg):
+    self.farg = arg
+
   def setAllocator(self, allocator):
     self.allocator = allocator
 
@@ -86,37 +102,55 @@ class Probe:
     if not os.path.exists(path):
       print >> sys.stderr, "Probe config file not found: %s" % path
       return False
-    
+
     cfg = iniparse.INIConfig(open(path))
     self.privs = cfg.reqs.privs
     self.needed = cfg.reqs.needed
     self.needed = self.needed.split(',')
     self.command = cfg.run.command
+    try:
+      self.compcommand = cfg["run"]["compare"]
+    except KeyError:
+      self.compcommand = None
     return True
-  
+
   def validateFree(self):
     if re.match(r"[a-zA-Z][a-zA-Z0-9_]*", self.nfree):
       return True
     else:
-      print >> sys.stderr, "Free function name has to be valid C identifier" 
+      print >> sys.stderr, "Free function name has to be valid C identifier"
       return False
-    
+
+  def validateMArg(self):
+    if re.match(r"[a-zA-Z][a-zA-Z0-9_]*", self.marg):
+      return True
+    else:
+      print >> sys.stderr, "Malloc arg name has to be valid C identifier"
+      return False
+
+  def validateFArg(self):
+    if re.match(r"[a-zA-Z][a-zA-Z0-9_]*", self.farg):
+      return True
+    else:
+      print >> sys.stderr, "Free arg name has to be valid C identifier"
+      return False
+
   def validateMalloc(self):
     if re.match(r"[a-zA-Z][a-zA-Z0-9_]*", self.nmalloc):
       return True
     else:
-      print >> sys.stderr, "Malloc function name has to be valid C identifier" 
+      print >> sys.stderr, "Malloc function name has to be valid C identifier"
       return False
-  
+
   def validateSampleSize(self):
     try:
       int(self.samplesize)
       return True
     except TypeError:
-      print >> sys.stderr, "Sample size must be specified and must be an integer" 
+      print >> sys.stderr, "Sample size must be specified and must be an integer"
       return False
     except ValueError:
-      print >> sys.stderr, "Sample size must be specified and must be an integer" 
+      print >> sys.stderr, "Sample size must be specified and must be an integer"
       return False
 
   def validateBatchSize(self):
@@ -124,10 +158,10 @@ class Probe:
       int(self.batchsize)
       return True
     except TypeError:
-      print >> sys.stderr, "Batch size must be specified and must be an integer" 
+      print >> sys.stderr, "Batch size must be specified and must be an integer"
       return False
     except ValueError:
-      print >> sys.stderr, "Batch size must be specified and must be an integer" 
+      print >> sys.stderr, "Batch size must be specified and must be an integer"
       return False
 
   def validateScenario(self):
@@ -140,7 +174,7 @@ class Probe:
     else:
       print >> sys.stderr, "Scenario file %s does not exist" % self.scenario
       return False
-    
+
   def validateAllocator(self):
     if self.allocator is None:
       print >> sys.stderr, "Probe needs allocator specified"
@@ -151,7 +185,7 @@ class Probe:
     else:
       print >> sys.stderr, "Allocator shared library %s does not exist" % self.allocator
       return False
-  
+
   def validate(self):
     if self.privs != "normal":
       if getpass.getuser() != self.privs:
@@ -162,10 +196,10 @@ class Probe:
       if not self.validators[req]():
         return False
     return True
-  
+
   def prepare(self):
     if 'scenario' in self.needed:
-      fd, self.scenarioAsC = tempfile.mkstemp(suffix=".c") 
+      fd, self.scenarioAsC = tempfile.mkstemp(suffix=".c")
       pd = subprocess.Popen([self.scenarioTrans, self.scenario],
                             stdout=fd, stderr=subprocess.PIPE, env=self.env)
       pd.wait()
@@ -176,6 +210,34 @@ class Probe:
           print >> sys.stderr, line.strip()
         return False
 
+    return True
+
+  def compare(self, args):
+    savePath = os.getcwd()
+    os.chdir(os.path.join('probes', self.name))
+    if self.compcommand is None:
+      print >> sys.stderr, "This probe does not support comparation"
+      return False
+
+    args = [self.compcommand] + args
+
+    pd = subprocess.Popen(args,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          env=self.env)
+
+    while pd.poll() is None:
+      time.sleep(1)
+
+    os.chdir(savePath)
+    if pd.returncode != 0:
+      print >> sys.stderr, "Probe comparing failed:"
+      for line in pd.stderr:
+        print >> sys.stderr, line.strip()
+      return False
+
+    else:
+      for line in pd.stdout:
+        print line,
     return True
 
   def launch(self):
@@ -192,6 +254,7 @@ class Probe:
       time.sleep(1)
 
     os.chdir(savePath)
+    os.remove(self.scenarioAsC)
     if pd.returncode != 0:
       print >> sys.stderr, "Probe running failed:"
       for line in pd.stderr:

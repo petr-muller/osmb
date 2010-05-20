@@ -14,16 +14,16 @@ class Allocation(Command):
 
   def getAfter(self, before):
     return (self.identifier, True)
-  
+
   def getIdentifier(self):
     return self.identifier
-  
+
   def asC(self):
-    return '%s = ALLOCATE(%s);' % (self.identifier, self.amount)
-  
+    return '%s = (char *)ALLOCATE(%s);' % (self.identifier, self.amount)
+
   def __str__(self):
     return 'alloc %s %s' % (self.identifier, self.amount)
-  
+
   def propagate(self, dic):
     dic[self.identifier] = self.amount
 
@@ -40,10 +40,10 @@ class Work(Command):
 
   def getAfter(self, before):
     return (self.ident, before)
-  
+
   def getIdentifier(self):
     return self.ident
-  
+
   def asC(self):
     commands = { 'read'  : 'helper = %s[iterator];' % self.ident,
                  'write' : '%s[iterator] = %i;' % (self.ident, random.randint(0,127)),
@@ -70,14 +70,14 @@ class Work(Command):
       elif self.direction == 'backwards':
         sample.sort()
         sample.reverse()
-      
+
       comseq = []
       for item in sample:
         comseq.append(commands[self.type].replace('iterator', str(item)))
-      return '\n'.join(comseq)    
+      return '\n'.join(comseq)
 
     return ''
-  
+
   def __str__(self):
     return 'work %s %s %s %s' % (self.type, self.amount,
                                  self.ident, self.direction)
@@ -93,19 +93,19 @@ class Deallocation(Command):
 
   def getAfter(self, before):
     return (self.identifier, False)
-  
+
   def getIdentifier(self):
     return self.identifier
-  
+
   def asC(self):
     return 'FREE(%s);' % self.identifier
 
   def __str__(self):
     return 'dealloc %s' % self.identifier
-  
+
   def propagate(self, dic):
     del dic[self.identifier]
-    
+
 class Workjob:
   def __init__(self, name):
     self.name = name
@@ -196,7 +196,7 @@ class Scenario:
 
   def isValid(self):
     return self.valid
-  
+
   def getMessages(self):
     return self.messages
 
@@ -210,11 +210,11 @@ class Scenario:
         self.messages.extend(thread.getMessages())
         self.valid = False
       memorySum += thread.getMaxMem()
-        
+
     if memorySum > self.memlimit:
       self.messages.append("Threads can consume more memory than limit: %s > %s" % (memorySum, self.memlimit))
       self.valid = False
-      
+
   def translateToC(self):
     source =  ctemplate.getHeader(self.memlimit, self.threadCount)
     source += ctemplate.getWorkjobs(self.threads)
