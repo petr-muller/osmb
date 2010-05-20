@@ -1,61 +1,37 @@
 #!/bin/bash
 
-ALLOCATOR=""
-SCENARIO=""
-SSIZE=""
-BSIZE=""
-MALLOC=""
-FREE=""
-
-abort(){
-	echo "$1" >&2
-	exit 1 	
+cleanup(){
+  rm -rf $EXECUTABLE $BATCHFILE $OUTPUTFILE $LPATH
 }
 
-while getopts a:f:s:b:m:d: o
-do
-	case "$o" in
-		a) ALLOCATOR="$OPTARG";;
-		f) SCENARIO="$OPTARG";;
-		s) SSIZE="$OPTARG";;
-		b) BSIZE="$OPTARG";;
-		m) MALLOC="$OPTARG";;
-		d) FREE="$OPTARG";;
-		[?]) echo "Invalid option: $o" >&2; exit 1;;
-	esac
-done
+. ../commonlib.sh
 
-if 	[ -z "$ALLOCATOR" ] || [ -z "$SSIZE" ] || [ -z "$BSIZE" ] ||\
-	[ -z "$SCENARIO" ] || [ -z "$MALLOC" ] || [ -z "$FREE" ]
-then
-	abort "Not all of mandatory options were supplied"
-fi
+parse_options $@
+
+check_option "$ALLOCATOR" "allocator"
+check_option "$SSIZE" "sample size"
+check_option "$BSIZE" "batch size"
+check_option "$SCENARIO" "scenario"
+check_option "$MALLOC" "malloc function name"
+check_option "$FREE" "free function name"
 
 EXECUTABLE=`mktemp`
 BATCHFILE=`mktemp`
 OUTPUTFILE=`mktemp`
 
-gcc -o $EXECUTABLE $SCENARIO -g -std=c99 -lpthread -DALLOCATE=$MALLOC -DFREE=$FREE
+uniquize_allocator $ALLOCATOR
 
-if [ "$?" != "0" ]
-then
-	echo "Scenario compilation failed. Command:" >&2
-	echo "gcc -o $EXECUTABLE $SCENARIO -g -std=c99 -lpthread -DALLOCATE=$MALLOC -DFREE=$FREE" >&2
-	exit 1
-fi
+checked_command "gcc -o $EXECUTABLE $SCENARIO -g -std=c99 $APATH -lpthread -DALLOCATE=$MALLOC -DFREE=$FREE" "Testcase compilation"
 
-LD_PRELOAD=$ALLOCATOR $EXECUTABLE >&2
-if [ "$?" != "0" ]
-then
-	abort "Test testcase run failed"
-fi
+checked_command "LD_LIBRARY_PATH=$LPATH $EXECUTABLE" "Test dry run"
 
 cat > $BATCHFILE << EOF
 #!/bin/bash
 
+set -e
 for batch in \`seq $BSIZE\`
 do
-	LD_PRELOAD=$ALLOCATOR $EXECUTABLE
+	LD_LIBRARY_PATH=$LPATH $EXECUTABLE
 done
 EOF
 
@@ -64,11 +40,8 @@ chmod a+x $BATCHFILE
 echo "REAL SYSTEM USER" > $OUTPUTFILE
 for sample in `seq $SSIZE`
 do
-	/usr/bin/time --output $OUTPUTFILE\
-				  --format "%e %S %U"\
-				  --append\
-				  $BATCHFILE
+	checked_command '/usr/bin/time --output $OUTPUTFILE --format "%e %S %U" --append $BATCHFILE'
 done
-python evaluate.py $OUTPUTFILE || abort "Failed to evaluate the results" 
 
-rm $EXECUTABLE $BATCHFILE
+checked_command "python evaluate.py $OUTPUTFILE" "Parsing the output"
+cleanup
