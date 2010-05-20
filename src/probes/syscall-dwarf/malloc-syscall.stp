@@ -1,19 +1,21 @@
 #!/usr/bin/stap
 
-probe process(@1).function("malloc"){
-  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $bytes);
+global inMmap;
+
+probe process(@1).function(@7){
+  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $MARG);
 }
 
-probe process(@1).function("malloc").return{
-  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:end RET:%i\n",gettimeofday_ns(), tid(), $bytes, $return);
+probe process(@1).function(@7).return{
+  printf("TS:%i TID:%i NAME:malloc ARG:%i TYPE:end RET:%i\n",gettimeofday_ns(), tid(), $MARG, $return);
 }
 
-probe process(@1).function("free"){
-  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $mem);
+probe process(@1).function(@8){
+  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:start RET:\n",gettimeofday_ns(), tid(), $FARG);
 }
 
-probe process(@1).function("free").return{
-  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:end RET:\n",gettimeofday_ns(), tid(), $mem);
+probe process(@1).function(@8).return{
+  printf("TS:%i TID:%i NAME:free ARG:%i TYPE:end RET:\n",gettimeofday_ns(), tid(), $FARG);
 }
 
 probe process(@2).syscall{
@@ -28,23 +30,22 @@ probe process(@2).syscall{
     }
   }
   if ($syscall == $5){ //munmap
-    printf("TS:%i TID:%i NAME:munmap ARG:%i,%i TYPE:start RET:\n", gettimeofday_ns(), tid(), $arg1, $arg2);
+      printf("TS:%i TID:%i NAME:munmap ARG:%i,%i TYPE:start RET:\n", gettimeofday_ns(), tid(), $arg1, $arg2);
   }
 }
 
-global inMmap;
 
 probe process(@2).syscall.return{
   if ($syscall == $3){
     printf("TS:%i TID:%i NAME:brk ARG: TYPE:end RET:%i\n",gettimeofday_ns(), tid(), $return);
   }
   if ($syscall == $4){ //mmap
-    if (inMmap[tid()] == 1){
+    if (inMmap[tid()] == 1 ){
       printf("TS:%i TID:%i NAME:mmap ARG: TYPE:end RET:%i\n", gettimeofday_ns(), tid(), $return);
       inMmap[tid()] = 0;
     }
   }
   if ($syscall == $5){ //munmap
-    printf("TS:%i TID:%i NAME:munmap ARG: TYPE:end RET:%i\n", gettimeofday_ns(), tid(), $return);
-}
+      printf("TS:%i TID:%i NAME:munmap ARG: TYPE:end RET:%i\n", gettimeofday_ns(), tid(), $return);
+  }
 }
