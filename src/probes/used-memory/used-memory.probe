@@ -1,0 +1,7 @@
+[reqs]
+privs = normal
+needed = scenario,allocator,free,malloc,marg,farg
+
+[run]
+command = ./run.sh
+compare = ./compare.py
